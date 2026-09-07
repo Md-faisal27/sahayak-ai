@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  passwordHash  String
+  name          String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  documents     PdfDocument[]
+  sessions      Session[]
+  topicProgress TopicProgress[]
+  flashcards    Flashcard[]
+  mistakes      MistakeRecord[]
+  studyPlans    StudyPlan[]
+}
+
+model PdfDocument {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filename        String
+  fileSize        Int
+  pageCount       Int         @default(1)
+  detectedSubject String      @default("General Knowledge")
+  extractedText   String
+  extractedTopics String      // JSON string array of topics
+  extractedChunks String      // JSON string array of chunk objects { id, text, topic }
+  storagePath     String?     // Supabase Storage path for the raw PDF file
+  createdAt       DateTime    @default(now())
+  sessions        Session[]
+  flashcards      Flashcard[]
+  studyPlans      StudyPlan[]
+}
+
+model Session {
+  id                   String                @id @default(uuid())
+  userId               String
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId           String
+  document             PdfDocument           @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  mode                 String                // EXAM, INTERVIEW, SUMMARIZE, WEAK_COACH
+  status               String                @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED
+  language             String                @default("ENGLISH") // ENGLISH, HINDI, HINGLISH
+  currentQuestionIndex Int                   @default(0)
+  totalScore           Float                 @default(0)
+  questionCount        Int                   @default(10)
+  difficulty           String                @default("Medium")
+  writtenSummary       String?
+  topicsCovered        String?               // JSON string array
+  weakTopicTarget      String?               // Target topic for Weak Topic Coach mode
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  questions            Question[]
+  answers              Answer[]
+  messages             ConversationMessage[]
+}
+
+model Question {
+  id               String   @id @default(uuid())
+  sessionId        String
+  session          Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  orderIndex       Int
+  questionText     String
+  topic            String
+  difficulty       String
+  questionType     String   // MCQ, Short Answer, Long Answer, Conceptual, Application, Scenario
+  mcqOptions       String?  // JSON string array of choices if MCQ
+  correctAnswer    String?  // Correct answer reference or choice
+  explanation      String?  // Detailed concept explanation
+  hint5Words       String   // Short 5-word hint
+  fullHint         String   // Detailed hint
+  contextReference String   // Excerpt from PDF
+  answers          Answer[]
+}
+
+model Answer {
+  id                 String   @id @default(uuid())
+  sessionId          String
+  session            Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId         String
+  question           Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  studentResponse    String
+  evaluationScore    Float
+  classification     String   // STRONG, AVERAGE, WEAK
+  feedback           String
+  hintsUsed          Int      @default(0)
+  interruptionsCount Int      @default(0)
+  timeTakenSeconds   Int      @default(0)
+  createdAt          DateTime @default(now())
+}
+
+model ConversationMessage {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  speaker     String   // AI, STUDENT, SYSTEM
+  textContent String
+  intent      String?
+  createdAt   DateTime @default(now())
+}
+
+model TopicProgress {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicName      String
+  scoreHistory   String   // JSON string array e.g. "[42, 61, 86]"
+  attemptsCount  Int      @default(1)
+  latestScore    Float    @default(0)
+  classification String   @default("AVERAGE") // STRONG, AVERAGE, WEAK
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, topicName])
+}
+
+model Flashcard {
+  id         String      @id @default(uuid())
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId String
+  document   PdfDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  topic      String
+  front      String      // Question / Concept Name
+  back       String      // Explanation / Definition
+  known      Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+}
+
+model MistakeRecord {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic          String
+  questionText   String
+  wrongAnswer    String
+  correctConcept String
+  failCount      Int      @default(1)
+  resolved       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model StudyPlan {
+  id         String      @id @default(uuid())
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId String
+  document   PdfDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  planData   String      // JSON string of structured daily tasks & priorities
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}

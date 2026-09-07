@@ -1,0 +1,211 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0.985 0.002 90;
+    --foreground: 0.12 0.01 60;
+    --muted: 0.94 0.005 90;
+    --muted-foreground: 0.45 0.02 60;
+    --border: 0.88 0.01 90;
+    --radius: 0.25rem;
+  }
+
+  body {
+    background-color: oklch(var(--background));
+    color: oklch(var(--foreground));
+    font-family: var(--font-sans), sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    selection-background-color: oklch(var(--foreground) / 0.15);
+    selection-color: oklch(var(--foreground));
+  }
+
+  ::selection {
+    background-color: oklch(var(--foreground) / 0.15);
+    color: oklch(var(--foreground));
+  }
+}
+
+/* SVG feTurbulence 3% noise overlay */
+.noise-overlay {
+  position: relative;
+}
+
+.noise-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Typography stroke utility */
+.text-stroke {
+  -webkit-text-stroke: 1.5px currentColor;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Motion utilities */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-reverse {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 30s linear infinite;
+}
+
+.marquee-reverse {
+  display: flex;
+  width: max-content;
+  animation: marquee-reverse 30s linear infinite;
+}
+
+.marquee:hover,
+.marquee-reverse:hover {
+  animation-play-state: paused;
+}
+
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+}
+
+.line-reveal {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  transition: clip-path 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes charIn {
+  0% {
+    opacity: 0;
+    filter: blur(20px);
+    transform: translateY(60%);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0);
+  }
+}
+
+.animate-char-in {
+  display: inline-block;
+  animation: charIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Focus and accessibility styles */
+:focus-visible {
+  outline: 2px solid oklch(var(--foreground));
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Responsive & Touch Enhancements
+   --------------------------------------------------------------------------- */
+
+/* Minimum 44px touch targets for interactive elements on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  a[href],
+  [role="button"],
+  input[type="submit"],
+  input[type="button"],
+  select {
+    min-height: 44px;
+  }
+
+  /* Compact buttons still need adequate padding on touch */
+  button,
+  a[href],
+  [role="button"] {
+    min-width: 44px;
+  }
+
+  /* Touch-friendly icon-only buttons */
+  button.p-1\.5,
+  button.p-2,
+  button.p-2\.5 {
+    padding: 0.75rem;
+  }
+}
+
+/* Prevent horizontal scroll on small viewports */
+@media (max-width: 640px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Allow long technical terms / code to break on mobile */
+  .break-anywhere,
+  .font-mono,
+  pre,
+  code,
+  table {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Tables should be scrollable, not broken */
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Reduce heavy decorative padding on very small screens */
+@media (max-width: 480px) {
+  .sm\:p-10 {
+    padding: 1.5rem;
+  }
+
+  /* Scale down giant display headlines on tiny screens */
+  .text-\[clamp\(2\.5rem,6\.2vw,5\.5rem\)\] {
+    font-size: clamp(1.75rem, 8vw, 2.5rem);
+  }
+
+  .text-4xl,
+  .text-5xl,
+  .text-6xl,
+  .text-7xl {
+    font-size: clamp(1.5rem, 6vw, 2.5rem);
+    line-height: 1.05;
+  }
+}
+
+/* Scrollbar styling for transcript */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: oklch(var(--border));
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
