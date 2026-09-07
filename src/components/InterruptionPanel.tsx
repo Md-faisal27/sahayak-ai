@@ -9,7 +9,6 @@ import {
   HelpCircle,
   ChevronsRight,
   Compass,
-  Languages,
 } from 'lucide-react';
 
 interface InterruptionPanelProps {
@@ -77,44 +76,7 @@ export function InterruptionPanel({
   ];
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm space-y-5">
-      {/* Spoken Voice Language Switcher */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-          <Languages className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-          <span className="text-xs font-extrabold uppercase tracking-wider">
-            Spoken Voice Language:
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs font-semibold">
-          {(
-            [
-              { key: 'ENGLISH', label: 'English' },
-              { key: 'HINDI', label: 'Hindi' },
-              { key: 'HINGLISH', label: 'Hinglish' },
-            ] as const
-          ).map((item) => {
-            const isActive = currentLanguage === item.key;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                disabled={disabled}
-                onClick={() => onLanguageSwitch && onLanguageSwitch(item.key)}
-                className={`px-4 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                  isActive
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-xs font-bold'
-                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-                } ${disabled ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
+    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-5 sm:p-6 shadow-sm">
       {/* 6 Action Buttons Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {actions.map((act) => {

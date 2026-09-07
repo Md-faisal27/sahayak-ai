@@ -1045,12 +1045,10 @@ export default function SessionStudioPage() {
               </div>
             )}
 
-            {/* Interruption & Language Switcher Panel */}
+            {/* Interruption Panel */}
             {!isCompleted && (
               <InterruptionPanel
                 onTrigger={handleInterruption}
-                onLanguageSwitch={handleLanguageSwitch}
-                currentLanguage={currentLanguage}
                 disabled={submittingAnswer || isTranslatingLanguage}
               />
             )}

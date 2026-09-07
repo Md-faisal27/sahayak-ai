@@ -230,9 +230,6 @@ function ModeSelectionContent() {
                   </span>
                 </div>
               </div>
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-900 self-start sm:self-auto">
-                1 Question at a Time • Report After Exam
-              </span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2.5 ml-6 leading-relaxed">
               Targeted technical interview asking one grounded core question at a time. Adapts difficulty dynamically and provides a comprehensive evaluation report upon completion.
