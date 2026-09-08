@@ -223,16 +223,16 @@ function ModeSelectionContent() {
                 />
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    AI Technical Interview (Adaptive Agent)
+                    AI Technical Interview (Spoken Voice Loop & Live Audio Assistant)
                   </h3>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-950/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 flex items-center gap-1">
-                    Adaptive Examination
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                    <Volume2 className="w-3 h-3 text-emerald-600" /> Rime AI Spoken Conversation
                   </span>
                 </div>
               </div>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-2.5 ml-6 leading-relaxed">
-              Targeted technical interview asking one grounded core question at a time. Adapts difficulty dynamically and provides a comprehensive evaluation report upon completion.
+              Interactive conversational examination powered by a real-time audio loop. Rime AI speaks grounded questions aloud, automatically listens to your spoken answers, supports live voice interruption commands ('clue', 'repeat', 'simplify'), and delivers verbal coaching feedback.
             </p>
           </div>
 

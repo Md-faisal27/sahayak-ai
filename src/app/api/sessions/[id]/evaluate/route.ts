@@ -168,9 +168,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       isCompleted = nextQuestionIndex >= session.questions.length;
       nextQuestionRecord = !isCompleted ? session.questions[nextQuestionIndex] || null : null;
 
-      evalSpokenText = isCompleted || !nextQuestionRecord
-        ? 'You have completed all questions for this exam.'
-        : `Answer recorded. Question ${nextQuestionIndex + 1}: ${nextQuestionRecord.questionText}`;
+      if (session.mode === 'WEAK_COACH') {
+        const coachFeedback = standardEval.feedback || (evalClassif === 'STRONG' ? 'Excellent explanation.' : 'Good effort on that concept.');
+        evalSpokenText = isCompleted || !nextQuestionRecord
+          ? `Coaching session complete. ${coachFeedback} You have completed your targeted mastery practice on ${question.topic}.`
+          : `${coachFeedback} Moving to coaching step ${nextQuestionIndex + 1}: ${nextQuestionRecord.questionText}`;
+      } else {
+        evalSpokenText = isCompleted || !nextQuestionRecord
+          ? 'You have completed all questions for this exam.'
+          : `Answer recorded. Question ${nextQuestionIndex + 1}: ${nextQuestionRecord.questionText}`;
+      }
 
       detailedEvaluation = {
         scoreOutOf10: Math.round(standardEval.score / 10),

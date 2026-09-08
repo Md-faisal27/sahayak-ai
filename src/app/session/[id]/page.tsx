@@ -72,6 +72,21 @@ export default function SessionStudioPage() {
     speaker: 'astra',
   });
 
+  // Continuous Voice Loop & Hands-free Audio Controls
+  const [continuousVoiceLoop, setContinuousVoiceLoop] = useState(true);
+  const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
+  const continuousVoiceLoopRef = useRef(true);
+  const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const studentInputRef = useRef('');
+
+  useEffect(() => {
+    continuousVoiceLoopRef.current = continuousVoiceLoop;
+  }, [continuousVoiceLoop]);
+
+  useEffect(() => {
+    studentInputRef.current = studentInput;
+  }, [studentInput]);
+
   // Audio refs & Speech Recognition
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -79,6 +94,26 @@ export default function SessionStudioPage() {
   const speechTokenRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const hasSpokenQuestion1Ref = useRef<boolean>(false);
+
+  // Check spoken input for interruption intent keywords
+  const parseVoiceCommand = (transcript: string): InterruptionIntent | null => {
+    const lower = transcript.toLowerCase().trim();
+    if (/\b(5[- ]?word hint|five word hint|clue|give clue|hint)\b/.test(lower)) return 'HINT_5_WORD';
+    if (/\b(repeat question|repeat|say again|pardon)\b/.test(lower)) return 'REPEAT';
+    if (/\b(explain simply|simplify|simpler)\b/.test(lower)) return 'SIMPLIFY';
+    if (/\b(give example|practical example|example)\b/.test(lower)) return 'EXAMPLE';
+    if (/\b(detailed hint|full hint)\b/.test(lower)) return 'HINT_FULL';
+    if (/\b(skip question|skip|next question)\b/.test(lower)) return 'SKIP';
+    return null;
+  };
+
+  const cancelAutoSubmit = () => {
+    if (autoSubmitTimerRef.current) {
+      clearInterval(autoSubmitTimerRef.current);
+      autoSubmitTimerRef.current = null;
+    }
+    setAutoSubmitCountdown(null);
+  };
 
   useEffect(() => {
     fetchSessionDetails();
@@ -95,11 +130,48 @@ export default function SessionStudioPage() {
         const transcript = Array.from(event.results)
           .map((res: any) => res[0].transcript)
           .join('');
+
+        // 1. Detect direct spoken voice commands
+        const detectedCommand = parseVoiceCommand(transcript);
+        if (detectedCommand) {
+          cancelAutoSubmit();
+          setStudentInput('');
+          try {
+            recognition.stop();
+          } catch (e) {}
+          handleInterruption(detectedCommand);
+          return;
+        }
+
+        // 2. Otherwise treat as spoken student response
+        cancelAutoSubmit();
         setStudentInput(transcript);
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        // If continuous voice loop is enabled and student provided spoken response, auto-submit countdown
+        if (
+          continuousVoiceLoopRef.current &&
+          studentInputRef.current.trim().length > 8 &&
+          voiceState !== 'EVALUATING' &&
+          voiceState !== 'COMPLETED'
+        ) {
+          cancelAutoSubmit();
+          let count = 3;
+          setAutoSubmitCountdown(count);
+          autoSubmitTimerRef.current = setInterval(() => {
+            count -= 1;
+            if (count <= 0) {
+              cancelAutoSubmit();
+              if (studentInputRef.current.trim()) {
+                handleSubmitAnswer();
+              }
+            } else {
+              setAutoSubmitCountdown(count);
+            }
+          }, 1000);
+        }
       };
 
       recognitionRef.current = recognition;
@@ -107,6 +179,7 @@ export default function SessionStudioPage() {
 
     return () => {
       stopCurrentSpeech();
+      cancelAutoSubmit();
     };
   }, [sessionId]);
 
@@ -256,6 +329,14 @@ export default function SessionStudioPage() {
           if (speechTokenRef.current === currentToken) {
             setIsPlayingAudio(false);
             setVoiceState('LISTENING');
+            // Auto-start microphone if Continuous Voice Loop is active
+            if (continuousVoiceLoopRef.current && recognitionRef.current) {
+              try {
+                setStudentInput('');
+                recognitionRef.current.start();
+                setIsListening(true);
+              } catch (err) {}
+            }
           }
         };
 
@@ -529,9 +610,10 @@ export default function SessionStudioPage() {
       setHintFullActive(null);
       setAssistBanner(null);
 
+      cancelAutoSubmit();
       if (data.isCompleted) {
         setVoiceState('COMPLETED');
-        const finalMsg = 'All questions have been answered. That concludes your oral technical defense. Compiling your final performance report.';
+        const finalMsg = data.aiMessageText || 'All questions have been answered. That concludes your oral technical defense. Compiling your final performance report.';
         speakAiResponse(finalMsg);
         setMessages((prev) => [
           ...prev,
@@ -559,7 +641,7 @@ export default function SessionStudioPage() {
           : session?.questions?.[data.nextQuestionIndex] || data.nextQuestion;
 
         const questionTextToSpeak = targetQ?.questionText || targetQ?.question || '';
-        const nextSpeech = `Answer recorded. Question ${data.nextQuestionIndex + 1}: ${questionTextToSpeak}`;
+        const nextSpeech = data.aiMessageText || `Answer recorded. Question ${data.nextQuestionIndex + 1}: ${questionTextToSpeak}`;
 
         speakAiResponse(nextSpeech);
         setMessages((prev) => [
@@ -842,6 +924,20 @@ export default function SessionStudioPage() {
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
+                  onClick={() => setContinuousVoiceLoop(!continuousVoiceLoop)}
+                  title="Toggle Continuous Spoken Voice Loop"
+                  className={`px-3 py-2 sm:px-2.5 sm:py-1 rounded-lg font-mono text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
+                    continuousVoiceLoop
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                      : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${continuousVoiceLoop ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                  <span>Voice Loop: {continuousVoiceLoop ? 'Auto-Listen' : 'Manual'}</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={togglePlayPauseAudio}
                   title={isPlayingAudio ? 'Pause Voice' : 'Play Voice'}
                   className="px-3 py-2 sm:px-2.5 sm:py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1 transition-colors min-h-[44px] sm:min-h-0"
@@ -988,36 +1084,76 @@ export default function SessionStudioPage() {
             {!isCompleted && (
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Student Response (Spoken or Typed)
-                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      Student Response (Spoken Voice or Typed)
+                    </label>
+                    {isListening && (
+                      <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        Listening...
+                      </span>
+                    )}
+                  </div>
 
                   <button
                     type="button"
                     onClick={toggleListening}
                     className={`px-4 py-3 sm:px-3.5 sm:py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 min-h-[44px] sm:min-h-0 ${
                       isListening
-                        ? 'bg-rose-600 text-white shadow-xs'
+                        ? 'bg-rose-600 text-white shadow-xs animate-pulse'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                     }`}
                   >
                     {isListening ? (
                       <>
-                        <MicOff className="w-3.5 h-3.5" /> <span className="sm:hidden">Stop Mic</span>
+                        <MicOff className="w-3.5 h-3.5" /> <span>Listening (Stop Mic)</span>
                       </>
                     ) : (
                       <>
-                        <Mic className="w-3.5 h-3.5" /> <span className="sm:hidden">Mic</span>
+                        <Mic className="w-3.5 h-3.5" /> <span>Start Mic</span>
                       </>
                     )}
                   </button>
                 </div>
 
+                {autoSubmitCountdown !== null && (
+                  <div className="p-3.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping shrink-0" />
+                      <span className="font-bold">
+                        Spoken response captured. Hands-free auto-submitting in {autoSubmitCountdown}s...
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={cancelAutoSubmit}
+                        className="px-3 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        Keep Speaking
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSubmitAnswer}
+                        className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors shadow-xs"
+                      >
+                        Submit Now
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+
+
                 <textarea
                   rows={3}
                   value={studentInput}
-                  onChange={(e) => setStudentInput(e.target.value)}
-                  placeholder="Speak through your mic or type your explanation here..."
+                  onChange={(e) => {
+                    cancelAutoSubmit();
+                    setStudentInput(e.target.value);
+                  }}
+                  placeholder="Speak your technical answer through your microphone or type here..."
                   className="w-full p-3.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-900 dark:text-white"
                 />
 
