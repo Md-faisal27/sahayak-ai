@@ -105,25 +105,25 @@ export default function DashboardPage() {
   const weakTopic = analytics?.weakTopics?.[0]?.name;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground w-full max-w-full overflow-x-hidden">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 min-w-0">
         {/* Workspace Banner */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-7 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-colors">
-          <div className="space-y-1.5">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 sm:p-7 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 transition-colors w-full min-w-0">
+          <div className="space-y-1.5 min-w-0 flex-1">
+            <h1 className="text-xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white break-words">
               Welcome back, <span className="text-brand-600 dark:text-brand-400">{user?.name || 'Student'}</span>
             </h1>
-            <p className="text-slate-600 dark:text-slate-400 text-sm max-w-xl leading-relaxed">
+            <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm max-w-xl leading-relaxed">
               Turn your study materials into adaptive AI technical interviews, active recall flashcards, and comprehensive study summaries.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full md:w-auto">
             <button
               onClick={() => setActiveTab(activeTab === 'UPLOAD' ? 'OVERVIEW' : 'UPLOAD')}
-              className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl text-sm transition-colors flex items-center gap-2 shadow-xs"
+              className="w-full md:w-auto justify-center px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl text-xs sm:text-sm transition-colors flex items-center gap-2 shadow-xs"
             >
               <Upload className="w-4 h-4" />
               <span>{activeTab === 'UPLOAD' ? 'View Dashboard' : 'Upload New PDF'}</span>
@@ -374,28 +374,30 @@ export default function DashboardPage() {
                         )}
                       </div>
 
-                      <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-2">
+                      <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-2">
                         <Link
                           href={`/mode-selection?docId=${doc.id}`}
-                          className="flex-1 py-1.5 px-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold text-center flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                          className="flex-1 min-w-[120px] py-1.5 px-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold text-center flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                         >
                           <Mic className="w-3.5 h-3.5" />
                           <span>Start Interview</span>
                         </Link>
-                        <Link
-                          href={`/summary?documentId=${doc.id}`}
-                          className="py-1.5 px-2.5 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-600 transition-colors"
-                          title="View Summary"
-                        >
-                          Summary
-                        </Link>
-                        <Link
-                          href={`/flashcards?docId=${doc.id}`}
-                          className="py-1.5 px-2.5 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-600 transition-colors"
-                          title="View Flashcards"
-                        >
-                          Cards
-                        </Link>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Link
+                            href={`/summary?documentId=${doc.id}`}
+                            className="py-1.5 px-2.5 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-600 transition-colors"
+                            title="View Summary"
+                          >
+                            Summary
+                          </Link>
+                          <Link
+                            href={`/flashcards?docId=${doc.id}`}
+                            className="py-1.5 px-2.5 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-600 transition-colors"
+                            title="View Flashcards"
+                          >
+                            Cards
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   ))}

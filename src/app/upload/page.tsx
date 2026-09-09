@@ -14,10 +14,10 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+      <main className="flex-1 max-w-4xl w-full min-w-0 mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-6 sm:space-y-8">
         <div className="text-center space-y-2">
           <div className="w-10 h-10 rounded-lg bg-brand-700 dark:bg-brand-600 text-white flex items-center justify-center mx-auto shadow-xs mb-3">
             <UploadCloud className="w-5 h-5" />
@@ -28,7 +28,7 @@ export default function UploadPage() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-8 shadow-sm">
           <PdfUploader onSuccess={handleUploadSuccess} />
         </div>
       </main>

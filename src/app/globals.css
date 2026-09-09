@@ -12,12 +12,27 @@
     --radius: 0.25rem;
   }
 
+  html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    box-sizing: border-box;
+  }
+
+  *, *:before, *:after {
+    box-sizing: border-box;
+  }
+
   body {
     background-color: oklch(var(--background));
     color: oklch(var(--foreground));
     font-family: var(--font-sans), sans-serif;
     min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
     overflow-x: hidden;
+    position: relative;
     selection-background-color: oklch(var(--foreground) / 0.15);
     selection-color: oklch(var(--foreground));
   }
@@ -126,36 +141,24 @@
    Responsive & Touch Enhancements
    --------------------------------------------------------------------------- */
 
-/* Minimum 44px touch targets for interactive elements on touch devices */
+/* Minimum 44px touch targets for primary interactive elements on touch devices */
 @media (hover: none) and (pointer: coarse) {
-  button,
-  a[href],
-  [role="button"],
+  button:not(.inline-link),
+  [role="button"]:not(.inline-link),
   input[type="submit"],
   input[type="button"],
   select {
     min-height: 44px;
   }
-
-  /* Compact buttons still need adequate padding on touch */
-  button,
-  a[href],
-  [role="button"] {
-    min-width: 44px;
-  }
-
-  /* Touch-friendly icon-only buttons */
-  button.p-1\.5,
-  button.p-2,
-  button.p-2\.5 {
-    padding: 0.75rem;
-  }
 }
 
-/* Prevent horizontal scroll on small viewports */
+/* Prevent horizontal scroll and zoom blowout on small viewports */
 @media (max-width: 640px) {
+  html,
   body {
-    overflow-x: hidden;
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+    width: 100% !important;
   }
 
   /* Allow long technical terms / code to break on mobile */
@@ -163,15 +166,22 @@
   .font-mono,
   pre,
   code,
-  table {
-    word-break: break-word;
+  table,
+  p,
+  span,
+  h1,
+  h2,
+  h3,
+  h4 {
     overflow-wrap: break-word;
+    word-break: break-word;
   }
 
-  /* Tables should be scrollable, not broken */
+  /* Tables and wide code should be scrollable, not blow out the layout */
   table {
     display: block;
     width: 100%;
+    max-width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }

@@ -9,32 +9,26 @@ import { ConversationTranscript, Message } from '@/components/ConversationTransc
 import { VoiceState, InterruptionIntent } from '@/lib/state-machine';
 import { AppLanguage } from '@/lib/language';
 import {
+  Sparkles,
+  AlertCircle,
   Mic,
   MicOff,
   Send,
-  Sparkles,
-  Download,
-  Lightbulb,
   Loader2,
-  ChevronRight,
-  BookOpen,
-  Languages,
-  Layers,
+  ArrowLeft,
   Volume2,
   VolumeX,
-  Play,
-  Pause,
   RotateCcw,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
-  Compass,
-  X,
+  BookOpen,
+  Award,
+  Layers,
 } from 'lucide-react';
+import Link from 'next/link';
 
-export default function SessionStudioPage() {
-  const { id: sessionId } = useParams() as { id: string };
+export default function SessionPage() {
+  const params = useParams();
   const router = useRouter();
+  const sessionId = params.id as string;
 
   const [session, setSession] = useState<any>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -44,22 +38,13 @@ export default function SessionStudioPage() {
   const [isListening, setIsListening] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
-
-  // Tracking state & Assistance Banners
-  const [hintsUsed, setHintsUsed] = useState(0);
-  const [interruptionsCount, setInterruptionsCount] = useState(0);
-  const [hint5WordsActive, setHint5WordsActive] = useState<string | null>(null);
-  const [hintFullActive, setHintFullActive] = useState<string | null>(null);
-  const [assistBanner, setAssistBanner] = useState<{ type: string; title: string; text: string } | null>(null);
-  const [translatedQuestions, setTranslatedQuestions] = useState<Record<string, string>>({});
-  const [isTranslatingLanguage, setIsTranslatingLanguage] = useState(false);
   const [currentLanguage, setCurrentLanguage] = useState<AppLanguage>('ENGLISH');
 
-  // Audio / Voice Controls State
+  // Audio / Telemetry State
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [continuousVoiceLoop, setContinuousVoiceLoop] = useState(true);
+  const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
   const [voiceTelemetry, setVoiceTelemetry] = useState<{
     latency: number | null;
     cached: boolean;
@@ -72,12 +57,16 @@ export default function SessionStudioPage() {
     speaker: 'astra',
   });
 
-  // Continuous Voice Loop & Hands-free Audio Controls
-  const [continuousVoiceLoop, setContinuousVoiceLoop] = useState(true);
-  const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
+  // Audio refs & Speech Recognition
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const lastSpokenTextRef = useRef<string>('');
+  const speechTokenRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const continuousVoiceLoopRef = useRef(true);
   const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
   const studentInputRef = useRef('');
+  const hasSpokenWelcomeRef = useRef(false);
 
   useEffect(() => {
     continuousVoiceLoopRef.current = continuousVoiceLoop;
@@ -87,15 +76,14 @@ export default function SessionStudioPage() {
     studentInputRef.current = studentInput;
   }, [studentInput]);
 
-  // Audio refs & Speech Recognition
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const recognitionRef = useRef<any>(null);
-  const lastSpokenTextRef = useRef<string>('');
-  const speechTokenRef = useRef<number>(0);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const hasSpokenQuestion1Ref = useRef<boolean>(false);
+  const cancelAutoSubmit = () => {
+    if (autoSubmitTimerRef.current) {
+      clearInterval(autoSubmitTimerRef.current);
+      autoSubmitTimerRef.current = null;
+    }
+    setAutoSubmitCountdown(null);
+  };
 
-  // Check spoken input for interruption intent keywords
   const parseVoiceCommand = (transcript: string): InterruptionIntent | null => {
     const lower = transcript.toLowerCase().trim();
     if (/\b(5[- ]?word hint|five word hint|clue|give clue|hint)\b/.test(lower)) return 'HINT_5_WORD';
@@ -107,16 +95,137 @@ export default function SessionStudioPage() {
     return null;
   };
 
-  const cancelAutoSubmit = () => {
-    if (autoSubmitTimerRef.current) {
-      clearInterval(autoSubmitTimerRef.current);
-      autoSubmitTimerRef.current = null;
+  const stopCurrentSpeech = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
-    setAutoSubmitCountdown(null);
+    speechTokenRef.current += 1;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current.onplay = null;
+      audioRef.current.onpause = null;
+      audioRef.current.onended = null;
+      audioRef.current.removeAttribute('src');
+      audioRef.current.load();
+      audioRef.current = null;
+    }
+    setIsPlayingAudio(false);
+  };
+
+  const speakAiResponse = async (text: string) => {
+    stopCurrentSpeech();
+    cancelAutoSubmit();
+
+    speechTokenRef.current += 1;
+    const currentToken = speechTokenRef.current;
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    lastSpokenTextRef.current = text;
+    setVoiceState('ASKING');
+
+    try {
+      const res = await fetch('/api/tts/rime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: controller.signal,
+      });
+
+      if (speechTokenRef.current !== currentToken) return;
+
+      const contentType = res.headers.get('Content-Type') || '';
+      const latencyHdr = res.headers.get('X-Rime-Latency-Ms');
+      const cachedHdr = res.headers.get('X-Rime-Cached');
+      const modelHdr = res.headers.get('X-Rime-Model');
+      const speakerHdr = res.headers.get('X-Rime-Speaker');
+
+      setVoiceTelemetry({
+        latency: latencyHdr ? parseInt(latencyHdr, 10) : null,
+        cached: cachedHdr === 'true',
+        model: modelHdr || 'arcana',
+        speaker: speakerHdr || 'astra',
+      });
+
+      if (res.ok && contentType.includes('audio')) {
+        const audioBlob = await res.blob();
+        if (speechTokenRef.current !== currentToken) return;
+
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.muted = isAudioMuted;
+        audioRef.current = audio;
+
+        audio.onplay = () => {
+          setIsPlayingAudio(true);
+          setVoiceState('ASKING');
+        };
+
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+          setVoiceState('LISTENING');
+          URL.revokeObjectURL(audioUrl);
+          audioRef.current = null;
+
+          if (continuousVoiceLoopRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+              setIsListening(true);
+            } catch (e) {
+              // Already running
+            }
+          }
+        };
+
+        audio.onerror = () => {
+          setIsPlayingAudio(false);
+          setVoiceState('LISTENING');
+          URL.revokeObjectURL(audioUrl);
+          audioRef.current = null;
+        };
+
+        await audio.play().catch(() => {
+          setIsPlayingAudio(false);
+          setVoiceState('LISTENING');
+        });
+      } else {
+        // Fallback to speech synthesis if Rime API is unreachable or text-only fallback
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          const cleanText = text.replace(/[*_#`]/g, '');
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+          utterance.rate = 1.0;
+          utterance.onstart = () => {
+            setIsPlayingAudio(true);
+            setVoiceState('ASKING');
+          };
+          utterance.onend = () => {
+            setIsPlayingAudio(false);
+            setVoiceState('LISTENING');
+            if (continuousVoiceLoopRef.current && recognitionRef.current) {
+              try {
+                recognitionRef.current.start();
+                setIsListening(true);
+              } catch (e) {}
+            }
+          };
+          window.speechSynthesis.speak(utterance);
+        } else {
+          setVoiceState('LISTENING');
+        }
+      }
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
+      if (speechTokenRef.current === currentToken) {
+        setVoiceState('LISTENING');
+      }
+    }
   };
 
   useEffect(() => {
-    fetchSessionDetails();
+    fetchSession();
 
     if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -131,29 +240,26 @@ export default function SessionStudioPage() {
           .map((res: any) => res[0].transcript)
           .join('');
 
-        // 1. Detect direct spoken voice commands
-        const detectedCommand = parseVoiceCommand(transcript);
-        if (detectedCommand) {
+        const command = parseVoiceCommand(transcript);
+        if (command) {
           cancelAutoSubmit();
           setStudentInput('');
           try {
             recognition.stop();
           } catch (e) {}
-          handleInterruption(detectedCommand);
+          handleInterruption(command);
           return;
         }
 
-        // 2. Otherwise treat as spoken student response
         cancelAutoSubmit();
         setStudentInput(transcript);
       };
 
       recognition.onend = () => {
         setIsListening(false);
-        // If continuous voice loop is enabled and student provided spoken response, auto-submit countdown
         if (
           continuousVoiceLoopRef.current &&
-          studentInputRef.current.trim().length > 8 &&
+          studentInputRef.current.trim().length > 5 &&
           voiceState !== 'EVALUATING' &&
           voiceState !== 'COMPLETED'
         ) {
@@ -183,7 +289,7 @@ export default function SessionStudioPage() {
     };
   }, [sessionId]);
 
-  const fetchSessionDetails = async () => {
+  const fetchSession = async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/sessions/${sessionId}`);
@@ -192,221 +298,34 @@ export default function SessionStudioPage() {
 
       setSession(data.session);
       setCurrentQuestionIndex(data.session.currentQuestionIndex || 0);
-      setCurrentLanguage((data.session.language as AppLanguage) || 'ENGLISH');
+      setCurrentLanguage(data.session.language || 'ENGLISH');
 
-      if (data.session.messages) {
-        setMessages(
-          data.session.messages.map((m: any) => ({
-            id: m.id,
-            speaker: m.speaker,
-            textContent: m.textContent,
-            intent: m.intent,
-            createdAt: m.createdAt,
-          }))
-        );
+      if (data.session.messages && data.session.messages.length > 0) {
+        setMessages(data.session.messages);
+      } else {
+        const firstQ = data.session.questions[0];
+        const initialText = `Welcome to your AI Technical Interview. Let's start with Question 1: ${firstQ?.questionText}`;
+        setMessages([{ speaker: 'AI', textContent: initialText }]);
       }
 
-      if (data.session.mode === 'SUMMARIZE') {
-        stopCurrentSpeech();
-        setVoiceState('IDLE');
-      } else {
-        // Voice-Native Oral Examination: Rime AI speaks active question aloud
-        const qIndex = data.session.currentQuestionIndex || 0;
-        const currentQ = data.session.questions?.[qIndex];
-        if (currentQ && data.session.status !== 'COMPLETED' && !hasSpokenQuestion1Ref.current) {
-          hasSpokenQuestion1Ref.current = true;
-          const qNum = qIndex + 1;
-          const spokenPrompt = qNum === 1
-            ? `Welcome to your technical oral examination. Question 1: ${currentQ.questionText}`
-            : `Question ${qNum}: ${currentQ.questionText}`;
-          speakAiResponse(spokenPrompt);
-        } else if (data.session.status === 'COMPLETED') {
-          setVoiceState('COMPLETED');
-        }
+      if (data.session.status === 'COMPLETED') {
+        setVoiceState('COMPLETED');
+      } else if (!hasSpokenWelcomeRef.current) {
+        hasSpokenWelcomeRef.current = true;
+        const currentQ = data.session.questions[data.session.currentQuestionIndex || 0];
+        const speechText = data.session.messages?.[0]?.textContent || `Question: ${currentQ?.questionText}`;
+        speakAiResponse(speechText);
       }
     } catch (err: any) {
-      alert(err.message || 'Error loading session');
+      alert(err.message || 'Error fetching interview session');
+      router.push('/dashboard');
     } finally {
       setLoading(false);
     }
   };
 
-  const stopCurrentSpeech = () => {
-    // 1. Abort in-flight network request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    // 2. Invalidate speech token to discard pending callbacks
-    speechTokenRef.current += 1;
-
-    // 3. Immediately pause, wipe src, and destroy audio element
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current.onplay = null;
-      audioRef.current.onpause = null;
-      audioRef.current.onended = null;
-      audioRef.current.removeAttribute('src');
-      audioRef.current.load();
-      audioRef.current = null;
-    }
-    setIsPlayingAudio(false);
-  };
-
-  const speakAiResponse = async (text: string) => {
-    if (session?.mode === 'SUMMARIZE' || !voiceEnabled) {
-      setVoiceState('LISTENING');
-      return;
-    }
-
-    // Always halt and destroy any active speech and cancel in-flight requests
-    stopCurrentSpeech();
-
-    // Increment and capture unique speech token for this invocation
-    speechTokenRef.current += 1;
-    const currentToken = speechTokenRef.current;
-
-    // Create fresh AbortController for this fetch
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    lastSpokenTextRef.current = text;
-    setVoiceState('ASKING');
-    setVoiceError(null);
-
-    try {
-      const res = await fetch('/api/tts/rime', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-        signal: controller.signal,
-      });
-
-      // Discard if token was invalidated while waiting
-      if (speechTokenRef.current !== currentToken) {
-        return;
-      }
-
-      const contentType = res.headers.get('Content-Type') || '';
-      const latencyHdr = res.headers.get('X-Rime-Latency-Ms');
-      const cachedHdr = res.headers.get('X-Rime-Cached');
-      const modelHdr = res.headers.get('X-Rime-Model');
-      const speakerHdr = res.headers.get('X-Rime-Speaker');
-
-      if (latencyHdr) {
-        setVoiceTelemetry({
-          latency: parseInt(latencyHdr, 10),
-          cached: cachedHdr === 'true',
-          model: modelHdr || 'arcana',
-          speaker: speakerHdr || 'astra',
-        });
-      }
-
-      if (res.ok && contentType.includes('audio')) {
-        const blob = await res.blob();
-
-        // Discard if token was invalidated while reading blob
-        if (speechTokenRef.current !== currentToken) {
-          return;
-        }
-
-        const audioUrl = URL.createObjectURL(blob);
-        const audio = new Audio(audioUrl);
-        audio.muted = isAudioMuted;
-        audioRef.current = audio;
-
-        audio.onplay = () => {
-          if (speechTokenRef.current === currentToken) {
-            setIsPlayingAudio(true);
-          } else {
-            audio.pause();
-            audio.removeAttribute('src');
-          }
-        };
-        audio.onpause = () => setIsPlayingAudio(false);
-        audio.onended = () => {
-          if (speechTokenRef.current === currentToken) {
-            setIsPlayingAudio(false);
-            setVoiceState('LISTENING');
-            // Auto-start microphone if Continuous Voice Loop is active
-            if (continuousVoiceLoopRef.current && recognitionRef.current) {
-              try {
-                setStudentInput('');
-                recognitionRef.current.start();
-                setIsListening(true);
-              } catch (err) {}
-            }
-          }
-        };
-
-        await audio.play();
-        return;
-      } else {
-        const data = await res.json().catch(() => ({}));
-        if (speechTokenRef.current === currentToken) {
-          setVoiceError(data.message || 'Voice temporarily unavailable. You can continue using text mode.');
-          setVoiceState('LISTENING');
-        }
-      }
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return;
-      if (speechTokenRef.current === currentToken) {
-        setVoiceError('Voice temporarily unavailable. You can continue using text mode.');
-        setVoiceState('LISTENING');
-      }
-    }
-  };
-
-  const togglePlayPauseAudio = () => {
-    if (!audioRef.current) {
-      if (lastSpokenTextRef.current) {
-        speakAiResponse(lastSpokenTextRef.current);
-      }
-      return;
-    }
-
-    if (isPlayingAudio) {
-      audioRef.current.pause();
-      setIsPlayingAudio(false);
-    } else {
-      audioRef.current.play();
-      setIsPlayingAudio(true);
-    }
-  };
-
-  const replayCurrentAudio = () => {
-    const q = session?.questions?.[currentQuestionIndex];
-    const translated =
-      currentLanguage !== 'ENGLISH' ? translatedQuestions[`${currentQuestionIndex}_${currentLanguage}`] : null;
-    if (translated) {
-      speakAiResponse(`Question ${currentQuestionIndex + 1}: ${translated}`);
-    } else if (q?.questionText) {
-      speakAiResponse(`Question ${currentQuestionIndex + 1}: ${q.questionText}`);
-    } else if (lastSpokenTextRef.current) {
-      speakAiResponse(lastSpokenTextRef.current);
-    }
-  };
-
-  const toggleMute = () => {
-    const nextMuted = !isAudioMuted;
-    setIsAudioMuted(nextMuted);
-    if (audioRef.current) {
-      audioRef.current.muted = nextMuted;
-    }
-  };
-
-  const toggleVoiceEnabled = () => {
-    const next = !voiceEnabled;
-    setVoiceEnabled(next);
-    if (!next) {
-      stopCurrentSpeech();
-    } else if (lastSpokenTextRef.current) {
-      speakAiResponse(lastSpokenTextRef.current);
-    }
-  };
-
   const toggleListening = () => {
+    cancelAutoSubmit();
     if (isListening) {
       recognitionRef.current?.stop();
       setIsListening(false);
@@ -419,242 +338,102 @@ export default function SessionStudioPage() {
     }
   };
 
-  const handleLanguageSwitch = async (lang: AppLanguage) => {
-    stopCurrentSpeech();
-    setCurrentLanguage(lang);
-    setIsTranslatingLanguage(true);
-
-    // Update microphone speech recognition language
-    if (recognitionRef.current) {
-      recognitionRef.current.lang = lang === 'ENGLISH' ? 'en-US' : 'hi-IN';
+  const toggleMute = () => {
+    const nextMuted = !isAudioMuted;
+    setIsAudioMuted(nextMuted);
+    if (audioRef.current) {
+      audioRef.current.muted = nextMuted;
     }
+  };
 
+  const handleLanguageChange = async (newLang: AppLanguage) => {
+    setCurrentLanguage(newLang);
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/language`, {
+      await fetch(`/api/sessions/${sessionId}/language`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language: lang, questionIndex: currentQuestionIndex }),
+        body: JSON.stringify({ language: newLang }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        if (data.translatedQuestion) {
-          const qIdx = typeof data.questionIndex === 'number' ? data.questionIndex : currentQuestionIndex;
-          setTranslatedQuestions((prev) => ({
-            ...prev,
-            [`${qIdx}_${lang}`]: data.translatedQuestion,
-          }));
-        }
-        if (data.confirmMsg) {
-          setMessages((prev) => [
-            ...prev,
-            { speaker: 'AI', textContent: data.confirmMsg, intent: `SWITCH_${lang}` },
-          ]);
-          speakAiResponse(data.confirmMsg);
-        }
-      }
     } catch (e) {
-    } finally {
-      setIsTranslatingLanguage(false);
+      console.error('Failed to change language:', e);
     }
   };
 
   const handleInterruption = async (intent: InterruptionIntent) => {
+    const currentQ = session?.questions[currentQuestionIndex];
+    if (!currentQ) return;
+
     stopCurrentSpeech();
-    setInterruptionsCount((prev) => prev + 1);
+    cancelAutoSubmit();
     setVoiceState('INTERRUPTED');
 
     try {
       const res = await fetch(`/api/sessions/${sessionId}/interact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          directIntent: intent,
-          questionIndex: currentQuestionIndex,
-        }),
+        body: JSON.stringify({ directIntent: intent, questionIndex: currentQuestionIndex }),
       });
-
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
       if (data.isInterruption) {
-        if (data.incrementHintCount) setHintsUsed((prev) => prev + 1);
-
-        // 1. Skip Question
-        if (data.isSkip) {
-          setHint5WordsActive(null);
-          setHintFullActive(null);
-          setAssistBanner(null);
-          setStudentInput('');
-
-          if (data.isCompleted) {
-            setVoiceState('COMPLETED');
-            setMessages((prev) => [
-              ...prev,
-              { speaker: 'STUDENT', textContent: '[Triggered: SKIP]' },
-              { speaker: 'AI', textContent: data.aiResponseText, intent: 'COMPLETED' },
-            ]);
-            speakAiResponse(data.aiResponseText);
-            setTimeout(() => {
-              router.push(`/report/${sessionId}`);
-            }, 2200);
-            return;
-          }
-
-          if (data.nextQuestion && session?.questions) {
-            setSession((prev: any) => {
-              const exists = prev.questions.some((q: any) => q.orderIndex === data.nextQuestion.orderIndex);
-              if (!exists) {
-                return { ...prev, questions: [...prev.questions, data.nextQuestion] };
-              }
-              return prev;
-            });
-          }
-
-          setCurrentQuestionIndex(data.nextQuestionIndex);
-          setMessages((prev) => [
-            ...prev,
-            { speaker: 'STUDENT', textContent: '[Triggered: SKIP]' },
-            { speaker: 'AI', textContent: data.aiResponseText, intent: 'SKIP' },
-          ]);
-          speakAiResponse(data.aiResponseText);
-          return;
-        }
-
-        // 2. 5-Word Hint
-        if (intent === 'HINT_5_WORD' && data.hint5Words) {
-          setHint5WordsActive(data.hint5Words);
-          setHintFullActive(null);
-          setAssistBanner(null);
-        }
-
-        // 3. Detailed Hint
-        if (intent === 'HINT_FULL' && data.fullHint) {
-          setHintFullActive(data.fullHint);
-          setHint5WordsActive(null);
-          setAssistBanner(null);
-        }
-
-        // 4. Explain Simply
-        if (intent === 'SIMPLIFY') {
-          setAssistBanner({
-            type: 'SIMPLIFY',
-            title: 'Simplified Explanation',
-            text: data.simplifiedText || data.aiResponseText,
-          });
-          setHint5WordsActive(null);
-          setHintFullActive(null);
-        }
-
-        // 5. Give Example
-        if (intent === 'EXAMPLE') {
-          setAssistBanner({
-            type: 'EXAMPLE',
-            title: 'Practical Scenario / Example',
-            text: data.exampleText || data.aiResponseText,
-          });
-          setHint5WordsActive(null);
-          setHintFullActive(null);
-        }
-
-        // 6. Repeat
-        if (intent === 'REPEAT') {
-          // Replay current speech
-        }
-
         setMessages((prev) => [
           ...prev,
           { speaker: 'STUDENT', textContent: `[Triggered: ${intent}]` },
           { speaker: 'AI', textContent: data.aiResponseText, intent },
         ]);
-
         speakAiResponse(data.aiResponseText);
       }
-    } catch (e: any) {
-      alert(e.message || 'Interruption error');
+    } catch (e) {
+      console.error('Interruption failed:', e);
     }
   };
 
   const handleSubmitAnswer = async () => {
-    if (!studentInput.trim()) return;
-
+    if (!studentInput.trim() || !session) return;
     stopCurrentSpeech();
+    cancelAutoSubmit();
     setSubmittingAnswer(true);
     setVoiceState('EVALUATING');
 
     const answerText = studentInput.trim();
     setStudentInput('');
     setIsListening(false);
-
     setMessages((prev) => [...prev, { speaker: 'STUDENT', textContent: answerText }]);
 
-    const currentQuestion = session.questions[currentQuestionIndex];
+    const currentQ = session.questions[currentQuestionIndex];
 
     try {
       const res = await fetch(`/api/sessions/${sessionId}/evaluate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          questionId: currentQuestion.id,
+          questionId: currentQ?.id,
           studentResponse: answerText,
-          hintsUsed,
-          interruptionsCount,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || 'Evaluation failed');
 
-      setHintsUsed(0);
-      setInterruptionsCount(0);
-      setHint5WordsActive(null);
-      setHintFullActive(null);
-      setAssistBanner(null);
+      const spokenFeedback = data.aiMessageText || (data.isCompleted ? 'Interview completed! Generating evaluation report.' : 'Answer recorded.');
 
-      cancelAutoSubmit();
+      setMessages((prev) => [
+        ...prev,
+        { speaker: 'AI', textContent: spokenFeedback, intent: data.isCompleted ? 'COMPLETED' : 'NEXT_QUESTION' },
+      ]);
+
+      speakAiResponse(spokenFeedback);
+
       if (data.isCompleted) {
         setVoiceState('COMPLETED');
-        const finalMsg = data.aiMessageText || 'All questions have been answered. That concludes your oral technical defense. Compiling your final performance report.';
-        speakAiResponse(finalMsg);
-        setMessages((prev) => [
-          ...prev,
-          {
-            speaker: 'AI',
-            textContent: finalMsg,
-            intent: 'COMPLETED',
-          },
-        ]);
-        setTimeout(() => {
-          router.push(`/report/${sessionId}`);
-        }, 2200);
+        setSession((prev: any) => ({ ...prev, status: 'COMPLETED' }));
       } else {
-        if (session?.mode === 'INTERVIEW' && data.nextQuestion) {
-          setSession((prev: any) => ({
-            ...prev,
-            questions: [...prev.questions, data.nextQuestion],
-          }));
+        if (data.questions) {
+          setSession((prev: any) => ({ ...prev, questions: data.questions }));
         }
         setCurrentQuestionIndex(data.nextQuestionIndex);
-
-        // Resolve the exact question that will be active on screen
-        const targetQ = session?.mode === 'INTERVIEW'
-          ? data.nextQuestion
-          : session?.questions?.[data.nextQuestionIndex] || data.nextQuestion;
-
-        const questionTextToSpeak = targetQ?.questionText || targetQ?.question || '';
-        const nextSpeech = data.aiMessageText || `Answer recorded. Question ${data.nextQuestionIndex + 1}: ${questionTextToSpeak}`;
-
-        speakAiResponse(nextSpeech);
-        setMessages((prev) => [
-          ...prev,
-          {
-            speaker: 'AI',
-            textContent: nextSpeech,
-            intent: 'NEXT_QUESTION',
-          },
-        ]);
       }
-    } catch (err: any) {
-      alert(err.message || 'Answer submission failed');
+    } catch (e: any) {
+      alert(e.message || 'Failed to submit response');
       setVoiceState('IDLE');
     } finally {
       setSubmittingAnswer(false);
@@ -663,535 +442,220 @@ export default function SessionStudioPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground">
+      <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
         <Navbar />
-        <div className="flex-1 flex items-center justify-center space-y-3 flex-col">
+        <div className="flex-1 flex items-center justify-center space-y-3 flex-col min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
-          <span className="text-sm font-semibold text-slate-500">Preparing Studio & Audio Engine...</span>
+          <span className="text-sm font-semibold text-slate-500">Initializing AI Technical Interview & Voice Stream...</span>
         </div>
       </div>
     );
   }
 
-  const currentQuestion = session?.questions?.[currentQuestionIndex];
-  const isCompleted = session?.status === 'COMPLETED' || voiceState === 'COMPLETED';
+  const currentQ = session?.questions[currentQuestionIndex];
+  const isCompleted = voiceState === 'COMPLETED' || session?.status === 'COMPLETED';
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* If SUMMARIZE MODE: Render Dedicated Full-Width Summary Studio */}
-        {session?.mode === 'SUMMARIZE' ? (
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-6">
-              {/* Summary Toolbar */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">
-                      Grounded PDF Summary
-                    </span>
-                    <span className="text-xs text-slate-500 font-mono">
-                      • {session.detectedSubject || 'Study Material'}
-                    </span>
-                  </div>
-                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white mt-1.5">
-                    {session.pdfName || 'Document Summary'}
-                  </h1>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Systematic 12-part conceptual synthesis anchored strictly to uploaded document chunks.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <a
-                    href={`/api/export/summary/${sessionId}`}
-                    download
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Download Summary PDF</span>
-                  </a>
-                </div>
-              </div>
-
-              {/* Formatted Content Reader */}
-              <div className="space-y-4 font-sans max-w-4xl">
-                {(session?.writtenSummary || '').split('\n').map((line: string, idx: number) => {
-                  const trimmed = line.trim();
-                  if (!trimmed) return <div key={idx} className="h-2" />;
-                  if (trimmed.startsWith('# ')) {
-                    return (
-                      <h2
-                        key={idx}
-                        className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white pt-3 pb-1 border-b border-slate-200 dark:border-slate-800"
-                      >
-                        {trimmed.replace(/^#\s+/, '')}
-                      </h2>
-                    );
-                  }
-                  if (trimmed.startsWith('## ')) {
-                    return (
-                      <h3
-                        key={idx}
-                        className="text-base sm:text-lg font-bold text-indigo-700 dark:text-indigo-400 pt-4 pb-1"
-                      >
-                        {trimmed.replace(/^##\s+/, '')}
-                      </h3>
-                    );
-                  }
-                  if (trimmed.startsWith('### ')) {
-                    return (
-                      <h4 key={idx} className="text-sm font-bold text-slate-800 dark:text-slate-200 pt-2">
-                        {trimmed.replace(/^###\s+/, '')}
-                      </h4>
-                    );
-                  }
-                  if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-                    return (
-                      <div
-                        key={idx}
-                        className="font-mono text-xs bg-slate-50 dark:bg-slate-800/70 p-2 rounded border border-slate-200 dark:border-slate-700 overflow-x-auto"
-                      >
-                        {trimmed}
-                      </div>
-                    );
-                  }
-                  if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                    return (
-                      <div key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-slate-700 dark:text-slate-300 pl-2">
-                        <span className="text-indigo-500 font-bold mt-0.5">•</span>
-                        <span>{trimmed.replace(/^[-*]\s+/, '')}</span>
-                      </div>
-                    );
-                  }
-                  return (
-                    <p key={idx} className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                      {trimmed}
-                    </p>
-                  );
-                })}
-              </div>
-
-              {/* Next Steps Quick Action Cards */}
-              <div className="pt-6 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3">
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <Layers className="w-4 h-4 text-brand-600" /> Active Recall Flashcards
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                      Practice questions on the core topics extracted from this PDF with interactive cards.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => router.push(`/flashcards?docId=${session.documentId}`)}
-                    className="self-start px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-brand-700 dark:text-brand-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
-                  >
-                    <span>Launch Flashcards</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3">
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <BookOpen className="w-4 h-4 text-emerald-600" /> Targeted Practice Exam
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                      Attempt multi-format exam questions calibrated to your syllabus difficulty level.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => router.push(`/mode-selection?docId=${session.documentId}`)}
-                    className="self-start px-3.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1"
-                  >
-                    <span>Configure Exam</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 min-w-0">
+        {/* Top Breadcrumb & Status */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href="/dashboard"
+            className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-300 flex items-center gap-1.5 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+          </Link>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+              {session?.mode || 'INTERVIEW'} MODE
+            </span>
+            <span className="text-xs font-mono text-slate-400">
+              Q{currentQuestionIndex + 1} of {session?.questionCount || 5}
+            </span>
           </div>
-        ) : (
-          <>
-            {/* Header for Interview / Exam Modes */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase font-extrabold tracking-wider px-2.5 py-0.5 rounded bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300">
-                    {session?.mode === 'INTERVIEW' ? 'AI Technical Interview' : `${session?.mode} Mode`}
-                  </span>
-                  <span className="text-xs text-slate-500">• {session?.pdfName}</span>
-                  <span className="text-xs font-bold text-teal-600 dark:text-teal-400 flex items-center gap-1">
-                    <Languages className="w-3.5 h-3.5" /> {currentLanguage}
-                  </span>
-                </div>
-                <h1 className="text-xl font-extrabold mt-1">
-                  {isCompleted
-                    ? 'Session Completed'
-                    : `Question ${currentQuestionIndex + 1} of ${session?.questionCount || session?.questions?.length}`}
-                </h1>
-              </div>
+        </div>
 
-              {/* Session Top Actions */}
-              <div className="flex flex-wrap items-center gap-2">
-                <a
-                  href={`/api/export/questions/${sessionId}`}
-                  download
-                  className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 border border-slate-200 dark:border-slate-700"
-                >
-                  <Download className="w-3.5 h-3.5" /> Question List PDF
-                </a>
+        {/* Rime Speech Telemetry & Voice Stream Bar */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs w-full min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="flex items-center gap-1.5 font-mono font-bold px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Rime AI: {voiceTelemetry.model}:{voiceTelemetry.speaker}
+            </span>
 
-                {isCompleted && (
-                  <button
-                    onClick={() => router.push(`/report/${sessionId}`)}
-                    className="px-5 py-2.5 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5"
-                  >
-                    <span>View Full Report</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+            <span className="font-mono text-slate-500 dark:text-slate-400">
+              Audio: <strong className="text-slate-700 dark:text-slate-300">MP3 Stream</strong>
+            </span>
+
+            {voiceTelemetry.latency !== null && (
+              <span className="font-mono text-slate-500 dark:text-slate-400">
+                • Latency:{' '}
+                <strong className="text-emerald-600 dark:text-emerald-400">
+                  {voiceTelemetry.latency}ms
+                </strong>
+                {voiceTelemetry.cached && (
+                  <span className="ml-1 text-[10px] text-indigo-500 font-bold">(In-Memory Cache)</span>
                 )}
-              </div>
-            </div>
+              </span>
+            )}
+          </div>
 
-            {/* State Indicator Banner for Exam Progress */}
-            <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleMute}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+              title={isAudioMuted ? 'Unmute Audio' : 'Mute Audio'}
+            >
+              {isAudioMuted ? <VolumeX className="w-4 h-4 text-rose-500" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={() => lastSpokenTextRef.current && speakAiResponse(lastSpokenTextRef.current)}
+              className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Replay Question
+            </button>
+          </div>
+        </div>
+
+        {/* Visualizer & Voice State Engine */}
+        <VoiceVisualizer
+          state={voiceState}
+          currentSpeakerText={lastSpokenTextRef.current}
+          hideSpokenText={true}
+        />
+
+        {/* Question Display Card */}
+        {currentQ && !isCompleted && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-7 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <span
-                  className={`w-2.5 h-2.5 rounded-full ${
-                    isListening
-                      ? 'bg-rose-500 animate-ping'
-                      : submittingAnswer
-                      ? 'bg-amber-500 animate-spin'
-                      : isCompleted
-                      ? 'bg-emerald-500'
-                      : 'bg-emerald-500'
-                  }`}
-                />
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  {submittingAnswer
-                    ? 'Submitting response...'
-                    : isListening
-                    ? 'Listening to Student Mic...'
-                    : isCompleted
-                    ? 'Technical Interview Completed'
-                    : 'Ready for Response'}
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-brand-100 dark:bg-brand-950 text-brand-800 dark:text-brand-300">
+                  Topic: {currentQ.topic}
+                </span>
+                <span className="text-xs font-mono text-slate-400">
+                  Difficulty: {currentQ.difficulty}
                 </span>
               </div>
+              <span className="text-[11px] font-mono text-slate-400">
+                Type: {currentQ.questionType || 'Conceptual'}
+              </span>
+            </div>
 
-              {currentQuestion && (
-                <div className="flex items-center gap-2 font-mono text-[11px] text-slate-500">
-                  <span>Topic: <strong className="text-slate-900 dark:text-white break-all">{currentQuestion.topic}</strong></span>
-                  <span>•</span>
-                  <span>Difficulty: <strong className="text-slate-900 dark:text-white">{currentQuestion.difficulty}</strong></span>
-                </div>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-relaxed">
+              {currentQ.questionText}
+            </h2>
+          </div>
+        )}
+
+        {/* Completion Card */}
+        {isCompleted && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center space-y-4 shadow-sm">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto">
+              <Award className="w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">
+              Technical Interview Concluded!
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+              You have completed all questions in this session. Your verbal responses have been scored against the syllabus source context.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Link
+                href={`/report/${sessionId}`}
+                className="px-6 py-3 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-2"
+              >
+                <span>View Full Performance Report</span>
+              </Link>
+              <Link
+                href="/dashboard"
+                className="px-5 py-3 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-300"
+              >
+                Return to Dashboard
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Student Voice Input Bar */}
+        {!isCompleted && (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Mic className="w-4 h-4 text-brand-600" /> Your Spoken Answer
+              </span>
+              {autoSubmitCountdown !== null && (
+                <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400 animate-pulse">
+                  Auto-submitting in {autoSubmitCountdown}s...
+                </span>
               )}
             </div>
 
-            {/* Speech Provider Observability & Audio Controls Bar */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="flex items-center gap-1.5 font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                  Rime AI: {voiceTelemetry.model}:{voiceTelemetry.speaker}
-                </span>
-
-                <span className="font-mono text-slate-500 dark:text-slate-400">
-                  Format: <strong className="text-slate-700 dark:text-slate-300">audio/mp3</strong>
-                </span>
-
-                {voiceTelemetry.latency !== null && (
-                  <span className="font-mono text-slate-500 dark:text-slate-400">
-                    • Latency:{' '}
-                    <strong className="text-emerald-600 dark:text-emerald-400">
-                      {voiceTelemetry.latency}ms
-                    </strong>
-                    {voiceTelemetry.cached && (
-                      <span className="ml-1 text-[10px] text-indigo-500 font-bold">(In-Memory Cache)</span>
-                    )}
-                  </span>
-                )}
-
-                <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
-                  Cut-off &lt;1ms
-                </span>
-              </div>
-
-              {/* Audio Controls */}
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setContinuousVoiceLoop(!continuousVoiceLoop)}
-                  title="Toggle Continuous Spoken Voice Loop"
-                  className={`px-3 py-2 sm:px-2.5 sm:py-1 rounded-lg font-mono text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
-                    continuousVoiceLoop
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
-                      : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
-                  }`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${continuousVoiceLoop ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                  <span>Voice Loop: {continuousVoiceLoop ? 'Auto-Listen' : 'Manual'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={togglePlayPauseAudio}
-                  title={isPlayingAudio ? 'Pause Voice' : 'Play Voice'}
-                  className="px-3 py-2 sm:px-2.5 sm:py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1 transition-colors min-h-[44px] sm:min-h-0"
-                >
-                  {isPlayingAudio ? (
-                    <>
-                      <Pause className="w-3.5 h-3.5" /> <span className="sm:hidden">Pause</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5" /> <span className="sm:hidden">Play</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={replayCurrentAudio}
-                  title="Replay Current Question Aloud"
-                  className="px-3 py-2 sm:px-2.5 sm:py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1 transition-colors min-h-[44px] sm:min-h-0"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" /> <span className="sm:hidden">Replay</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={toggleMute}
-                  title={isAudioMuted ? 'Unmute' : 'Mute'}
-                  className="p-3 sm:p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 transition-colors min-h-[44px] sm:min-h-0 min-w-[44px] sm:min-w-0 flex items-center justify-center"
-                >
-                  {isAudioMuted ? <VolumeX className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> : <Volume2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Voice Visualizer */}
-            <VoiceVisualizer
-              state={voiceState}
-              currentSpeakerText={isPlayingAudio ? lastSpokenTextRef.current : undefined}
+            <textarea
+              value={studentInput}
+              onChange={(e) => {
+                cancelAutoSubmit();
+                setStudentInput(e.target.value);
+              }}
+              placeholder="Speak aloud or type your answer here..."
+              rows={3}
+              className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-500 text-slate-900 dark:text-white resize-none"
             />
 
-            {/* Active Question Box */}
-            {!isCompleted && currentQuestion && (
-              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-7 shadow-sm space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-500 pb-2 border-b border-slate-100 dark:border-slate-800">
-                  <span className="flex items-center gap-1.5 font-bold text-brand-700 dark:text-brand-300">
-                    Topic: {currentQuestion.topic}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    {currentLanguage !== 'ENGLISH' && (
-                      <span className="px-2.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 font-mono text-[11px] font-bold border border-teal-200 dark:border-teal-800 flex items-center gap-1.5">
-                        {isTranslatingLanguage ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" /> Translating...
-                          </>
-                        ) : (
-                          <span>{currentLanguage === 'HINDI' ? 'हिंदी (Hindi)' : 'Hinglish'}</span>
-                        )}
-                      </span>
-                    )}
-                    <span>
-                      Format: <strong>{currentQuestion.questionType || 'Core concept'}</strong> • Difficulty:{' '}
-                      <strong>{currentQuestion.difficulty}</strong>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Question Text */}
-                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white leading-relaxed">
-                  {currentLanguage !== 'ENGLISH' && translatedQuestions[`${currentQuestionIndex}_${currentLanguage}`]
-                    ? translatedQuestions[`${currentQuestionIndex}_${currentLanguage}`]
-                    : currentQuestion.questionText}
-                </h2>
-
-                {/* Hint / Assistance Callouts */}
-                {hint5WordsActive && (
-                  <div className="p-4 rounded-2xl bg-[#243348] text-white flex items-start justify-between gap-3 shadow-sm border border-slate-700">
-                    <div className="flex items-start gap-2.5">
-                      <Lightbulb className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-amber-300">5-Word Hint</p>
-                        <p className="text-base font-extrabold mt-0.5 tracking-wide">"{hint5WordsActive}"</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setHint5WordsActive(null)}
-                      className="text-xs text-slate-300 hover:text-white px-3 py-2 rounded bg-slate-800/80 hover:bg-slate-700 transition-colors min-h-[44px] sm:min-h-0 flex items-center"
-                    >
-                      <X className="w-4 h-4 sm:hidden" /> Dismiss
-                    </button>
-                  </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <button
+                type="button"
+                onClick={toggleListening}
+                className={`px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-xs ${
+                  isListening
+                    ? 'bg-rose-600 text-white hover:bg-rose-700 animate-pulse'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                {isListening ? (
+                  <>
+                    <MicOff className="w-4 h-4" /> <span>Stop Listening</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-4 h-4" /> <span>Speak Answer (Mic)</span>
+                  </>
                 )}
+              </button>
 
-                {hintFullActive && (
-                  <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100 flex items-start justify-between gap-3 shadow-sm">
-                    <div className="flex items-start gap-2.5">
-                      <Lightbulb className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">Detailed Conceptual Hint</p>
-                        <p className="text-xs font-semibold mt-0.5 leading-relaxed">{hintFullActive}</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setHintFullActive(null)}
-                      className="text-xs text-amber-700 dark:text-amber-300 hover:text-amber-900 px-3 py-2 rounded hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors min-h-[44px] sm:min-h-0 flex items-center"
-                    >
-                      <X className="w-4 h-4 sm:hidden" /> Dismiss
-                    </button>
-                  </div>
+              <button
+                type="button"
+                onClick={handleSubmitAnswer}
+                disabled={submittingAnswer || !studentInput.trim()}
+                className="px-6 py-2.5 bg-brand-700 hover:bg-brand-800 dark:bg-brand-600 dark:hover:bg-brand-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-2 transition-all"
+              >
+                {submittingAnswer ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> <span>Evaluating...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Submit Answer</span> <Send className="w-3.5 h-3.5" />
+                  </>
                 )}
-
-                {assistBanner && (
-                  <div className={`p-4 rounded-2xl flex items-start justify-between gap-3 shadow-sm ${
-                    assistBanner.type === 'SIMPLIFY'
-                      ? 'bg-teal-50 dark:bg-teal-950/60 border border-teal-200 dark:border-teal-800 text-teal-900 dark:text-teal-100'
-                      : 'bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-100'
-                  }`}>
-                    <div className="flex items-start gap-2.5">
-                      {assistBanner.type === 'SIMPLIFY' ? (
-                        <HelpCircle className="w-5 h-5 text-teal-600 dark:text-teal-400 mt-0.5 shrink-0" />
-                      ) : (
-                        <Compass className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" />
-                      )}
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider opacity-80">{assistBanner.title}</p>
-                        <p className="text-xs font-semibold mt-0.5 leading-relaxed">{assistBanner.text}</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAssistBanner(null)}
-                      className="text-xs opacity-70 hover:opacity-100 px-3 py-2 rounded hover:bg-black/5 dark:hover:bg-white/5 transition-colors min-h-[44px] sm:min-h-0 flex items-center"
-                    >
-                      <X className="w-4 h-4 sm:hidden" /> Dismiss
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Student Input Box */}
-            {!isCompleted && (
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                      Student Response (Spoken Voice or Typed)
-                    </label>
-                    {isListening && (
-                      <span className="flex items-center gap-1 text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                        Listening...
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={toggleListening}
-                    className={`px-4 py-3 sm:px-3.5 sm:py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 min-h-[44px] sm:min-h-0 ${
-                      isListening
-                        ? 'bg-rose-600 text-white shadow-xs animate-pulse'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    {isListening ? (
-                      <>
-                        <MicOff className="w-3.5 h-3.5" /> <span>Listening (Stop Mic)</span>
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="w-3.5 h-3.5" /> <span>Start Mic</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {autoSubmitCountdown !== null && (
-                  <div className="p-3.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping shrink-0" />
-                      <span className="font-bold">
-                        Spoken response captured. Hands-free auto-submitting in {autoSubmitCountdown}s...
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
-                      <button
-                        type="button"
-                        onClick={cancelAutoSubmit}
-                        className="px-3 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                      >
-                        Keep Speaking
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSubmitAnswer}
-                        className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors shadow-xs"
-                      >
-                        Submit Now
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-
-
-                <textarea
-                  rows={3}
-                  value={studentInput}
-                  onChange={(e) => {
-                    cancelAutoSubmit();
-                    setStudentInput(e.target.value);
-                  }}
-                  placeholder="Speak your technical answer through your microphone or type here..."
-                  className="w-full p-3.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-900 dark:text-white"
-                />
-
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Evaluated against PDF content using semantic understanding.
-                  </span>
-                  <button
-                    type="button"
-                    disabled={submittingAnswer || !studentInput.trim()}
-                    onClick={handleSubmitAnswer}
-                    className="px-6 py-2.5 bg-brand-700 hover:bg-brand-800 dark:bg-brand-600 dark:hover:bg-brand-500 text-white font-semibold rounded-xl shadow-xs flex items-center gap-2 text-sm transition-colors disabled:opacity-50"
-                  >
-                    {submittingAnswer ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Evaluating...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" /> Submit Answer
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Interruption Panel */}
-            {!isCompleted && (
-              <InterruptionPanel
-                onTrigger={handleInterruption}
-                disabled={submittingAnswer || isTranslatingLanguage}
-              />
-            )}
-
-            <ConversationTranscript messages={messages} />
-          </>
+              </button>
+            </div>
+          </div>
         )}
+
+        {/* Live Interruption Triggers */}
+        {!isCompleted && (
+          <InterruptionPanel
+            onTrigger={handleInterruption}
+            onLanguageSwitch={handleLanguageChange}
+            currentLanguage={currentLanguage}
+          />
+        )}
+
+        {/* Full Transcript of the Viva */}
+        <ConversationTranscript messages={messages} onReplayAudio={speakAiResponse} />
       </main>
     </div>
   );

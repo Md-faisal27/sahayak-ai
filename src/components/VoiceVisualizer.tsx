@@ -7,10 +7,11 @@ import { Volume2, Mic, Hourglass, PauseCircle, HelpCircle, Lightbulb, CheckCircl
 interface VoiceVisualizerProps {
   state: VoiceState;
   currentSpeakerText?: string;
+  hideSpokenText?: boolean;
   onInterruptClick?: () => void;
 }
 
-export function VoiceVisualizer({ state, currentSpeakerText }: VoiceVisualizerProps) {
+export function VoiceVisualizer({ state, currentSpeakerText, hideSpokenText = false }: VoiceVisualizerProps) {
   const getStatusConfig = () => {
     switch (state) {
       case 'ASKING':
@@ -135,7 +136,7 @@ export function VoiceVisualizer({ state, currentSpeakerText }: VoiceVisualizerPr
         )}
       </div>
 
-      {currentSpeakerText && (
+      {!hideSpokenText && currentSpeakerText && (
         <div className="mt-4 pt-3 border-t border-current/15 text-sm font-medium italic opacity-90 line-clamp-2">
           "{currentSpeakerText}"
         </div>

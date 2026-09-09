@@ -440,21 +440,21 @@ function WeakCoachContent() {
   const isCompleted = voiceState === 'COMPLETED' || session?.status === 'COMPLETED';
 
   return (
-    <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      <div className="flex items-center justify-between">
+    <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           href="/dashboard"
           className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-300 flex items-center gap-1.5 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Dashboard
         </Link>
-        <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+        <span className="text-xs font-bold text-rose-600 dark:text-rose-400 break-words">
           Targeted Spoken Remediation: {topic}
         </span>
       </div>
 
       {/* Rime Speech Telemetry & Audio Observability Bar */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs w-full min-w-0">
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="flex items-center gap-1.5 font-mono font-bold px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">
             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
@@ -483,7 +483,7 @@ function WeakCoachContent() {
         </div>
 
         {/* Audio Controls */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => setContinuousVoiceLoop(!continuousVoiceLoop)}
@@ -658,7 +658,7 @@ function WeakCoachContent() {
 
 export default function WeakCoachPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground">
       <Navbar />
       <Suspense fallback={
         <div className="flex-1 flex items-center justify-center py-20">

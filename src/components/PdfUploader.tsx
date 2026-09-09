@@ -101,7 +101,7 @@ export function PdfUploader({ onSuccess }: PdfUploaderProps) {
         onDragLeave={() => setDragActive(false)}
         onDrop={handleDrop}
         onClick={() => status === 'IDLE' && fileInputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-3xl p-8 sm:p-10 text-center transition-all cursor-pointer ${
+        className={`relative border-2 border-dashed rounded-3xl p-5 sm:p-10 text-center transition-all cursor-pointer ${
           dragActive
             ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/30 scale-[1.01]'
             : status === 'ERROR'

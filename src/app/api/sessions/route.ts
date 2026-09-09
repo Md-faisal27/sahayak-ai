@@ -158,11 +158,11 @@ export async function POST(req: NextRequest) {
     let initialAiText = '';
 
     if (mode === 'SUMMARIZE') {
-      initialAiText = `Grounded study summary generated successfully for "${document.filename}".`;
+      initialAiText = `Study summary generated successfully.`;
     } else if (mode === 'INTERVIEW') {
-      initialAiText = `Welcome. I have analyzed your study material on "${document.filename}". Let us begin with our first core concept. ${firstQ?.questionText}`;
+      initialAiText = `Welcome to your technical interview. Let us begin with our first core concept. ${firstQ?.questionText}`;
     } else {
-      initialAiText = `Practice exam initialized for "${document.filename}". Question 1: ${firstQ?.questionText}`;
+      initialAiText = `Practice exam initialized. Question 1: ${firstQ?.questionText}`;
     }
 
     await db.conversationMessage.create({

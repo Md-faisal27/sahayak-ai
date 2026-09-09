@@ -114,20 +114,20 @@ function SummaryContent() {
   }
 
   return (
-    <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8 min-w-0">
       {/* Studio Header */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-6">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 p-4 sm:p-8 shadow-sm space-y-6 w-full min-w-0">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-slate-200 dark:border-slate-800 w-full min-w-0">
+          <div className="w-full md:w-auto min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900 shrink-0">
                 12-Part Study Guide
               </span>
-              <span className="text-xs text-slate-500 font-mono">
+              <span className="text-xs text-slate-500 font-mono truncate">
                 • {currentDoc?.detectedSubject || 'Curriculum Synthesis'}
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1.5">
+            <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1.5 break-words">
               {currentDoc?.filename || 'Document Summary'}
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -135,14 +135,14 @@ function SummaryContent() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             {/* Document Selector */}
             {documents.length > 1 && (
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <select
                   value={selectedDocId || ''}
                   onChange={(e) => setSelectedDocId(e.target.value)}
-                  className="appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 pr-8 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 pr-8 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-auto max-w-full truncate"
                 >
                   {documents.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -159,7 +159,7 @@ function SummaryContent() {
               type="button"
               disabled={generating}
               onClick={() => handleGenerateSummary(true)}
-              className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
+              className="flex-1 sm:flex-initial justify-center px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${generating ? 'animate-spin' : ''}`} />
               <span>{generating ? 'Synthesizing...' : 'Regenerate'}</span>
@@ -170,7 +170,7 @@ function SummaryContent() {
               <a
                 href={`/api/export/summary/${sessionId}`}
                 download
-                className="px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                className="flex-1 sm:flex-initial justify-center px-4 py-2 bg-brand-700 hover:bg-brand-800 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Download PDF Guide</span>
@@ -183,12 +183,12 @@ function SummaryContent() {
         {generating ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-3">
             <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
-            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400 text-center px-4">
               Synthesizing 12-section master study guide from document pages...
             </p>
           </div>
         ) : summary ? (
-          <div className="space-y-4 font-sans max-w-4xl">
+          <div className="space-y-4 font-sans max-w-4xl w-full min-w-0 break-words">
             {summary.split('\n').map((line: string, idx: number) => {
               const trimmed = line.trim();
               if (!trimmed) return <div key={idx} className="h-2" />;
@@ -196,7 +196,7 @@ function SummaryContent() {
                 return (
                   <h2
                     key={idx}
-                    className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white pt-4 pb-2 border-b border-slate-200 dark:border-slate-800"
+                    className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-white pt-4 pb-2 border-b border-slate-200 dark:border-slate-800 break-words"
                   >
                     {trimmed.replace(/^#\s+/, '')}
                   </h2>
@@ -206,7 +206,7 @@ function SummaryContent() {
                 return (
                   <h3
                     key={idx}
-                    className="text-base sm:text-lg font-bold text-indigo-700 dark:text-indigo-400 pt-5 pb-1"
+                    className="text-sm sm:text-lg font-bold text-indigo-700 dark:text-indigo-400 pt-5 pb-1 break-words"
                   >
                     {trimmed.replace(/^##\s+/, '')}
                   </h3>
@@ -214,7 +214,7 @@ function SummaryContent() {
               }
               if (trimmed.startsWith('### ')) {
                 return (
-                  <h4 key={idx} className="text-sm font-bold text-slate-800 dark:text-slate-200 pt-2">
+                  <h4 key={idx} className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 pt-2 break-words">
                     {trimmed.replace(/^###\s+/, '')}
                   </h4>
                 );
@@ -223,7 +223,7 @@ function SummaryContent() {
                 return (
                   <div
                     key={idx}
-                    className="font-mono text-xs bg-slate-50 dark:bg-slate-800/70 p-2 rounded border border-slate-200 dark:border-slate-700 overflow-x-auto"
+                    className="font-mono text-xs bg-slate-50 dark:bg-slate-800/70 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto max-w-full min-w-0 w-full"
                   >
                     {trimmed}
                   </div>
@@ -231,14 +231,14 @@ function SummaryContent() {
               }
               if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
                 return (
-                  <div key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-slate-700 dark:text-slate-300 pl-2">
-                    <span className="text-indigo-500 font-bold mt-0.5">•</span>
-                    <span>{trimmed.replace(/^[-*]\s+/, '')}</span>
+                  <div key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-slate-700 dark:text-slate-300 pl-1 sm:pl-2 min-w-0">
+                    <span className="text-indigo-500 font-bold mt-0.5 shrink-0">•</span>
+                    <span className="break-words min-w-0 flex-1">{trimmed.replace(/^[-*]\s+/, '')}</span>
                   </div>
                 );
               }
               return (
-                <p key={idx} className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                <p key={idx} className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed break-words">
                   {trimmed}
                 </p>
               );
@@ -258,8 +258,8 @@ function SummaryContent() {
         )}
 
         {/* Quick-Launch Next Actions */}
-        <div className="pt-6 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3">
+        <div className="pt-6 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3 w-full min-w-0">
             <div>
               <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
                 <Layers className="w-4 h-4 text-brand-600" /> Active Recall Flashcards
@@ -277,7 +277,7 @@ function SummaryContent() {
             </button>
           </div>
 
-          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3">
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-3 w-full min-w-0">
             <div>
               <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
                 <BookOpen className="w-4 h-4 text-emerald-600" /> AI Technical Interview
@@ -302,7 +302,7 @@ function SummaryContent() {
 
 export default function SummaryPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground w-full max-w-full overflow-x-hidden">
       <Navbar />
       <Suspense
         fallback={

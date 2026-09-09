@@ -47,15 +47,15 @@ export function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+    <header className="sticky top-0 z-50 w-full max-w-full bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
+      <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
           {/* Brand Logo & Title */}
           <Link
             href={user ? '/dashboard' : '/'}
-            className="flex items-center gap-3 shrink-0 group hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 sm:gap-3 shrink-0 group hover:opacity-90 transition-opacity"
           >
-            <div className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shrink-0 flex items-center justify-center shadow-xs">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shrink-0 flex items-center justify-center shadow-xs">
               <Image
                 src="/logo-icon.png"
                 alt="Sahayak AI Logo"
@@ -65,8 +65,8 @@ export function Navbar() {
                 priority
               />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-sans font-extrabold text-lg tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="font-sans font-extrabold text-base sm:text-lg tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
                 Sahayak <span className="text-brand-600 dark:text-brand-400">AI</span>
               </span>
             </div>
@@ -97,7 +97,7 @@ export function Navbar() {
           )}
 
           {/* Right Controls */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Rime AI Voice Badge */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-medium whitespace-nowrap shadow-2xs">
               <span className="relative flex h-2 w-2">
@@ -108,10 +108,10 @@ export function Navbar() {
             </div>
 
             {user ? (
-              <div className="flex items-center gap-3 pl-3 border-l border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-slate-200 dark:border-slate-800">
                 {/* User Profile Chip */}
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-brand-600 text-white font-bold text-xs flex items-center justify-center uppercase shadow-xs">
+                  <div className="w-7 h-7 rounded-full bg-brand-600 text-white font-bold text-xs flex items-center justify-center uppercase shadow-xs shrink-0">
                     {user.name ? user.name.charAt(0) : 'U'}
                   </div>
                   <span className="hidden md:inline text-xs font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[120px]">
@@ -123,7 +123,7 @@ export function Navbar() {
                 <button
                   onClick={handleLogout}
                   title="Sign Out"
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 hover:border-rose-200 text-slate-600 dark:text-slate-400 text-xs font-medium transition-all flex items-center gap-1.5"
+                  className="p-1.5 sm:px-2.5 sm:py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 hover:border-rose-200 text-slate-600 dark:text-slate-400 text-xs font-medium transition-all flex items-center gap-1.5 shrink-0"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Exit</span>
@@ -150,7 +150,7 @@ export function Navbar() {
             {user && (
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="lg:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors shrink-0"
                 aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
