@@ -40,7 +40,6 @@ export default function StudyPlanPage() {
   };
 
   return (
-  return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-foreground/15 selection:text-foreground w-full max-w-full overflow-x-hidden">
       <Navbar />
 

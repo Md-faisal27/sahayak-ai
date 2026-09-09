@@ -63,14 +63,14 @@ export default function ReportPage() {
   const averageAnswers = answers.filter((a: any) => a.classification === 'AVERAGE');
   const weakAnswers = answers.filter((a: any) => a.classification === 'WEAK');
 
-  const strongTopics = Array.from(new Set(strongAnswers.map((a: any) => {
+  const strongTopics: string[] = Array.from(new Set(strongAnswers.map((a: any) => {
     const q = session.questions?.find((quest: any) => quest.id === a.questionId);
-    return q?.topic || 'Core Concept';
+    return (q?.topic || 'Core Concept') as string;
   })));
 
-  const weakTopics = Array.from(new Set(weakAnswers.map((a: any) => {
+  const weakTopics: string[] = Array.from(new Set(weakAnswers.map((a: any) => {
     const q = session.questions?.find((quest: any) => quest.id === a.questionId);
-    return q?.topic || 'Core Concept';
+    return (q?.topic || 'Core Concept') as string;
   })));
 
   return (
