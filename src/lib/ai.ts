@@ -739,3 +739,84 @@ function evaluateFallback(
     adaptiveFollowUp: 'Can you give a practical example to illustrate this concept?'
   };
 }
+
+/**
+ * Generates a concise, question-grounded real-world or technical example
+ * strictly relevant to the question currently being asked.
+ */
+export async function generateQuestionExample(
+  questionText: string,
+  topic: string,
+  explanation: string = '',
+  contextReference: string = '',
+  language: AppLanguage = 'ENGLISH'
+): Promise<string> {
+  const langInstruction = getLanguageSystemPromptInstruction(language);
+  const prompt = `You are Sahayak AI, an expert technical examiner in an oral viva session.
+${langInstruction}
+The candidate clicked or asked: "Give Example".
+
+Question being asked: "${questionText}"
+Topic: "${topic}"
+Subject Context / Ground Truth: "${(explanation || contextReference || '').slice(0, 1000)}"
+
+TASK:
+Provide a concise, practical, real-world scenario or technical example (1 to 2 sentences maximum) that directly illustrates the concept tested in this specific question.
+Do NOT give away the full direct answer.
+Finish with a short conversational prompt returning to the question, e.g.: "Now, how does this apply to the question?" or "Now, how would you approach this?"
+STRICT CONSTRAINT: Keep under 40 words total so it sounds natural and snappy when spoken aloud by the voice interviewer.`;
+
+  try {
+    const raw = await callLLM(prompt, undefined, false);
+    const cleaned = raw.replace(/["*#_`]/g, '').trim();
+    if (cleaned.length > 15) {
+      return cleaned;
+    }
+  } catch (err) {
+    console.error('Failed to generate dynamic example:', err);
+  }
+
+  // Question-grounded fallback (never hardcode generic topics)
+  if (explanation && explanation.length > 10) {
+    const cleanSnippet = explanation.replace(/["*#_`]/g, '').slice(0, 120);
+    return `For example, in ${topic || 'this area'}: ${cleanSnippet}... Now, ${questionText}`;
+  }
+  return `For example, consider a practical application where ${topic || 'this principle'} is implemented in industry. In your own words, ${questionText}`;
+}
+
+/**
+ * Rephrases a question in simpler, plain language without heavy jargon.
+ */
+export async function generateQuestionSimplification(
+  questionText: string,
+  topic: string,
+  explanation: string = '',
+  contextReference: string = '',
+  language: AppLanguage = 'ENGLISH'
+): Promise<string> {
+  const langInstruction = getLanguageSystemPromptInstruction(language, true);
+  const prompt = `You are Sahayak AI, an expert technical examiner in an oral viva session.
+${langInstruction}
+The candidate asked to simplify or rephrase the question because they didn't understand it.
+
+Question: "${questionText}"
+Topic: "${topic}"
+Concept Context: "${(explanation || contextReference || '').slice(0, 800)}"
+
+TASK:
+Rephrase this question in simple, everyday language (1 to 2 sentences) without using unnecessary academic jargon, while keeping the core technical principle intact.
+STRICT CONSTRAINT: Keep under 35 words total so it is quick and natural to speak.`;
+
+  try {
+    const raw = await callLLM(prompt, undefined, false);
+    const cleaned = raw.replace(/["*#_`]/g, '').trim();
+    if (cleaned.length > 10) {
+      return cleaned;
+    }
+  } catch (err) {
+    console.error('Failed to generate dynamic simplification:', err);
+  }
+
+  return `In simple terms: ${questionText.replace(/What is the core concept of|Explain how/i, 'How does')}`;
+}
+

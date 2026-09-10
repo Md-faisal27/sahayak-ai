@@ -20,7 +20,7 @@ export function Cta() {
           </h2>
 
           <p className="text-base sm:text-lg text-muted-foreground font-light leading-relaxed max-w-2xl mx-auto">
-            Upload your course PDF to start practicing live technical defense, generating calibrated question sheets, and revising weak topics today.
+            Upload your syllabus or lecture notes PDF to start practicing live spoken vivas, reviewing active recall flashcards, and generating 12-section master study guides today.
           </p>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">

@@ -112,7 +112,7 @@ export function handleInterruptionResponse(
 
     case 'EXAMPLE':
       return {
-        responseText: `For example, in a database system, this concept helps separate how data is stored from how programs access it. Now, ${currentQuestionText}`,
+        responseText: `For example, think of how this principle is applied in real-world systems: ${fullHint ? fullHint : 'it solves core technical challenges'}. Now, ${currentQuestionText}`,
         nextState: 'CLARIFYING',
         incrementHintCount: false,
       };

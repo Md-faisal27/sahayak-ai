@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { handleInterruptionResponse, parseInterruptionIntent, InterruptionIntent } from '@/lib/state-machine';
+import { generateQuestionExample, generateQuestionSimplification } from '@/lib/ai';
+import { AppLanguage } from '@/lib/language';
 
 export async function POST(
   req: NextRequest,
@@ -50,12 +52,37 @@ export async function POST(
       currentQuestion.contextReference || ''
     );
 
+    let responseText = interruptionResult.responseText;
+    let nextState = interruptionResult.nextState;
+    let incrementHintCount = interruptionResult.incrementHintCount;
+
+    // Dynamically generate question-specific, PDF-grounded examples & simplifications
+    if (intent === 'EXAMPLE') {
+      responseText = await generateQuestionExample(
+        currentQuestion.questionText,
+        currentQuestion.topic,
+        currentQuestion.explanation || '',
+        currentQuestion.contextReference || '',
+        (session.language as AppLanguage) || 'ENGLISH'
+      );
+      nextState = 'CLARIFYING';
+    } else if (intent === 'SIMPLIFY') {
+      responseText = await generateQuestionSimplification(
+        currentQuestion.questionText,
+        currentQuestion.topic,
+        currentQuestion.explanation || '',
+        currentQuestion.contextReference || '',
+        (session.language as AppLanguage) || 'ENGLISH'
+      );
+      nextState = 'CLARIFYING';
+    }
+
     // Record interaction in conversation
     await db.conversationMessage.create({
       data: {
         sessionId: session.id,
         speaker: 'AI',
-        textContent: interruptionResult.responseText,
+        textContent: responseText,
         intent,
       },
     });
@@ -63,9 +90,9 @@ export async function POST(
     return NextResponse.json({
       isInterruption: true,
       intent,
-      aiResponseText: interruptionResult.responseText,
-      nextState: interruptionResult.nextState,
-      incrementHintCount: interruptionResult.incrementHintCount,
+      aiResponseText: responseText,
+      nextState,
+      incrementHintCount,
     });
   } catch (error: any) {
     console.error('Interruption handler failed:', error);

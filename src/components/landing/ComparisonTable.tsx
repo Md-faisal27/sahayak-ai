@@ -21,6 +21,11 @@ export function ComparisonTable() {
       sahayak: 'Sub-second interruption for 5-word clues and speed adjustments',
     },
     {
+      capability: 'Active Recall & Flashcards',
+      generic: 'Plain text dumps without spaced repetition or mastery tracking',
+      sahayak: 'Interactive flip flashcards with topic classification & PDF export',
+    },
+    {
       capability: 'Multi-Lingual Support',
       generic: 'Literal translation often garbling engineering concepts',
       sahayak: 'Native English, Hindi, and technical Hinglish pronunciation',

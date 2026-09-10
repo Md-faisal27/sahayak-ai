@@ -359,12 +359,72 @@ export default function SessionPage() {
     }
   };
 
+  const handleSkipQuestion = async () => {
+    if (!session || submittingAnswer) return;
+    const currentQ = session.questions[currentQuestionIndex];
+    if (!currentQ) return;
+
+    stopCurrentSpeech();
+    cancelAutoSubmit();
+    setSubmittingAnswer(true);
+    setVoiceState('EVALUATING');
+    setIsListening(false);
+    setStudentInput('');
+
+    setMessages((prev) => [...prev, { speaker: 'STUDENT', textContent: '[Question Skipped]' }]);
+
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          questionId: currentQ?.id,
+          studentResponse: '[Question Skipped]',
+          isSkipped: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to skip question');
+
+      const spokenFeedback = data.aiMessageText || (data.isCompleted ? 'Technical interview completed!' : 'Question skipped.');
+
+      setMessages((prev) => [
+        ...prev,
+        { speaker: 'AI', textContent: spokenFeedback, intent: data.isCompleted ? 'COMPLETED' : 'NEXT_QUESTION' },
+      ]);
+
+      speakAiResponse(spokenFeedback);
+
+      if (data.isCompleted) {
+        setVoiceState('COMPLETED');
+        setSession((prev: any) => ({ ...prev, status: 'COMPLETED' }));
+      } else {
+        if (data.questions) {
+          setSession((prev: any) => ({ ...prev, questions: data.questions }));
+        }
+        setCurrentQuestionIndex(data.nextQuestionIndex);
+      }
+    } catch (e: any) {
+      alert(e.message || 'Failed to skip question');
+      setVoiceState('IDLE');
+    } finally {
+      setSubmittingAnswer(false);
+    }
+  };
+
   const handleInterruption = async (intent: InterruptionIntent) => {
     const currentQ = session?.questions[currentQuestionIndex];
     if (!currentQ) return;
 
     stopCurrentSpeech();
     cancelAutoSubmit();
+
+    if (intent === 'SKIP') {
+      await handleSkipQuestion();
+      return;
+    }
+
     setVoiceState('INTERRUPTED');
 
     try {
@@ -480,11 +540,20 @@ export default function SessionPage() {
 
         {/* Voice Session Control Bar */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs w-full min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1.5 font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 text-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Live Voice Active
             </span>
+            <span className="font-mono text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+              <span className="text-slate-400">Voice Model:</span>
+              <strong className="text-brand-600 dark:text-brand-400 font-semibold">Rime AI ({voiceTelemetry.model} : {voiceTelemetry.speaker})</strong>
+            </span>
+            {voiceTelemetry.latency !== null && (
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 hidden sm:inline-block">
+                {voiceTelemetry.latency}ms {voiceTelemetry.cached ? '(cached)' : ''}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

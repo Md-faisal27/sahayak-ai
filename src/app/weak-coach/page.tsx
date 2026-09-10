@@ -352,12 +352,68 @@ function WeakCoachContent() {
     }
   };
 
+  const handleSkipQuestion = async () => {
+    if (!session || submittingAnswer) return;
+    const currentQ = session.questions[currentQuestionIndex];
+    if (!currentQ) return;
+
+    stopCurrentSpeech();
+    cancelAutoSubmit();
+    setSubmittingAnswer(true);
+    setVoiceState('EVALUATING');
+    setIsListening(false);
+    setStudentInput('');
+
+    setMessages((prev) => [...prev, { speaker: 'STUDENT', textContent: '[Question Skipped]' }]);
+
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/evaluate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          questionId: currentQ.id,
+          studentResponse: '[Question Skipped]',
+          isSkipped: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to skip question');
+
+      const spokenFeedback = data.aiMessageText || (data.isCompleted ? 'Coaching complete! You have mastered this concept.' : 'Question skipped.');
+
+      setMessages((prev) => [
+        ...prev,
+        { speaker: 'AI', textContent: spokenFeedback, intent: data.isCompleted ? 'COMPLETED' : 'NEXT_QUESTION' },
+      ]);
+
+      speakAiResponse(spokenFeedback);
+
+      if (data.isCompleted) {
+        setVoiceState('COMPLETED');
+      } else {
+        setCurrentQuestionIndex(data.nextQuestionIndex);
+      }
+    } catch (e: any) {
+      alert(e.message || 'Failed to skip question');
+      setVoiceState('IDLE');
+    } finally {
+      setSubmittingAnswer(false);
+    }
+  };
+
   const handleInterruption = async (intent: InterruptionIntent) => {
     const currentQ = session?.questions[currentQuestionIndex];
     if (!currentQ) return;
 
     stopCurrentSpeech();
     cancelAutoSubmit();
+
+    if (intent === 'SKIP') {
+      await handleSkipQuestion();
+      return;
+    }
+
     setVoiceState('INTERRUPTED');
 
     try {

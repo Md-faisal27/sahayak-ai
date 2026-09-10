@@ -22,6 +22,7 @@ export async function POST(
       hintsUsed = 0,
       interruptionsCount = 0,
       timeTakenSeconds = 0,
+      isSkipped = false,
     } = body;
 
     const session = await db.session.findFirst({
@@ -79,12 +80,13 @@ export async function POST(
           difficulty: question.difficulty as any,
           questionType: question.questionType,
         },
-        studentResponse,
+        studentResponse || (isSkipped ? '[Question Skipped]' : ''),
         allPrevious,
         currentCoverageMatrix,
         session.currentQuestionIndex,
         session.questionCount,
-        session.language as AppLanguage
+        session.language as AppLanguage,
+        Boolean(isSkipped)
       );
 
       evaluation = turnResult.evaluation;
@@ -114,20 +116,36 @@ export async function POST(
       }
     } else {
       // EXAM or WEAK_COACH evaluation
-      evaluation = await evaluateAnswerWithGroundTruth(
-        question.questionText,
-        question.contextReference,
-        question.explanation || question.topic,
-        expectedKeyPoints,
-        studentResponse,
-        question.difficulty as any,
-        session.language as AppLanguage
-      );
+      if (isSkipped) {
+        evaluation = {
+          scoreOutOf10: 0,
+          scorePercent: 0,
+          classification: 'INCORRECT',
+          feedback: 'Question skipped by the candidate.',
+          pointsMentioned: [],
+          missingPoints: expectedKeyPoints,
+          expectedKeyPoints,
+          spokenFeedback: 'Skipping question.',
+          adaptiveRecommendation: 'SIMPLIFY_FOLLOW_UP',
+          suggestedNextDifficulty: 'Easy',
+        };
+      } else {
+        evaluation = await evaluateAnswerWithGroundTruth(
+          question.questionText,
+          question.contextReference,
+          question.explanation || question.topic,
+          expectedKeyPoints,
+          studentResponse,
+          question.difficulty as any,
+          session.language as AppLanguage
+        );
+      }
 
       isCompleted = nextIndex >= session.questions.length;
+      const ackText = isSkipped ? 'Question skipped.' : 'Answer recorded.';
       spokenFeedback = isCompleted
-        ? 'Session completed! All questions evaluated against the document source.'
-        : `Answer recorded. Moving to Question ${nextIndex + 1}.`;
+        ? `${ackText} Session completed! All questions evaluated against the document source.`
+        : `${ackText} Moving to Question ${nextIndex + 1}.`;
     }
 
     // Record answer
@@ -135,7 +153,7 @@ export async function POST(
       data: {
         sessionId: session.id,
         questionId: question.id,
-        studentResponse: studentResponse || '',
+        studentResponse: isSkipped ? (studentResponse || '[Question Skipped]') : (studentResponse || ''),
         evaluationScore: evaluation.scorePercent,
         classification: evaluation.classification === 'CORRECT' ? 'STRONG' : evaluation.classification === 'PARTIALLY_CORRECT' ? 'AVERAGE' : 'WEAK',
         feedback: evaluation.feedback,
@@ -151,8 +169,8 @@ export async function POST(
         {
           sessionId: session.id,
           speaker: 'STUDENT',
-          textContent: studentResponse,
-          intent: 'STUDENT_ANSWER',
+          textContent: isSkipped ? '[Question Skipped]' : (studentResponse || ''),
+          intent: isSkipped ? 'SKIP' : 'STUDENT_ANSWER',
         },
         {
           sessionId: session.id,
