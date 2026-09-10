@@ -102,25 +102,25 @@ export function VoiceVisualizer({ state, currentSpeakerText, hideSpokenText = fa
   const Icon = config.icon;
 
   return (
-    <div className={`rounded-3xl border p-6 transition-all shadow-sm ${config.bgColor}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3.5">
-          <div className="relative">
-            <div className={`w-12 h-12 rounded-2xl ${config.indicatorBg} text-white flex items-center justify-center shadow-md`}>
-              <Icon className="w-6 h-6" />
+    <div className={`rounded-2xl sm:rounded-3xl border p-4 sm:p-6 transition-all shadow-sm ${config.bgColor}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
+          <div className="relative shrink-0">
+            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl ${config.indicatorBg} text-white flex items-center justify-center shadow-md`}>
+              <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             {config.pulse && (
-              <span className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full ${config.indicatorBg} animate-ping`} />
+              <span className={`absolute -top-1 -right-1 w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full ${config.indicatorBg} animate-ping`} />
             )}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h4 className="font-extrabold text-base tracking-tight">{config.label}</h4>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white/80 dark:bg-slate-800/80 shadow-xs border border-current">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <h4 className="font-extrabold text-sm sm:text-base tracking-tight">{config.label}</h4>
+              <span className="text-[10px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 rounded-full bg-white/80 dark:bg-slate-800/80 shadow-xs border border-current shrink-0">
                 {config.badgeText}
               </span>
             </div>
-            <p className="text-xs opacity-80 mt-0.5">{config.subLabel}</p>
+            <p className="text-xs opacity-80 mt-0.5 line-clamp-2 sm:line-clamp-none">{config.subLabel}</p>
           </div>
         </div>
 

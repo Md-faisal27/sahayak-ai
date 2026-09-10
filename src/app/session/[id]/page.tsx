@@ -478,29 +478,13 @@ export default function SessionPage() {
           </div>
         </div>
 
-        {/* Rime Speech Telemetry & Voice Stream Bar */}
+        {/* Voice Session Control Bar */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs w-full min-w-0">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span className="flex items-center gap-1.5 font-mono font-bold px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900 text-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Rime AI: {voiceTelemetry.model}:{voiceTelemetry.speaker}
+              Live Voice Active
             </span>
-
-            <span className="font-mono text-slate-500 dark:text-slate-400">
-              Audio: <strong className="text-slate-700 dark:text-slate-300">MP3 Stream</strong>
-            </span>
-
-            {voiceTelemetry.latency !== null && (
-              <span className="font-mono text-slate-500 dark:text-slate-400">
-                • Latency:{' '}
-                <strong className="text-emerald-600 dark:text-emerald-400">
-                  {voiceTelemetry.latency}ms
-                </strong>
-                {voiceTelemetry.cached && (
-                  <span className="ml-1 text-[10px] text-indigo-500 font-bold">(In-Memory Cache)</span>
-                )}
-              </span>
-            )}
           </div>
 
           <div className="flex items-center gap-2">

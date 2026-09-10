@@ -4,7 +4,6 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
 import {
-  Sparkles,
   Check,
   X,
   RotateCw,
@@ -13,6 +12,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Download,
   RefreshCw,
   FileText,
@@ -161,223 +161,201 @@ function FlashcardsContent() {
   const progressPercent = flashcards.length > 0 ? Math.round((knownCount / flashcards.length) * 100) : 0;
 
   return (
-    <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 min-w-0">
-      {/* Top Breadcrumb & Document Selector */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800 w-full min-w-0">
-        <Link
-          href="/dashboard"
-          className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-300 flex items-center gap-1.5 transition-colors shrink-0"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-        </Link>
+    <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 min-w-0">
+      {/* Streamlined Header Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800 w-full">
+        {/* Back Link & Document Selector */}
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href="/dashboard"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+            title="Back to Dashboard"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
 
-        {documents.length > 1 && (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto min-w-0">
-            <span className="text-xs text-slate-500 font-mono shrink-0 whitespace-nowrap">
-              Select Document:
-            </span>
-            <select
-              value={selectedDocId || ''}
-              onChange={(e) => {
-                setSelectedDocId(e.target.value);
-                router.push(`/flashcards?docId=${e.target.value}`);
-              }}
-              className="text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 dark:text-slate-200 focus:outline-hidden w-full sm:w-auto max-w-full truncate"
-            >
-              {documents.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.filename} ({d.detectedSubject})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full min-w-0">
-        <div className="space-y-1 w-full min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-900 shrink-0">
-              Active Recall Engine
-            </span>
-            {currentDoc?.detectedSubject && (
-              <span className="text-xs text-slate-500 font-medium truncate">
-                • {currentDoc.detectedSubject}
-              </span>
-            )}
-          </div>
-          <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 dark:text-white break-words">
-            {currentDoc?.filename || 'Document Flashcards'}
-          </h1>
-          {currentDoc?.topics && currentDoc.topics.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {currentDoc.topics.slice(0, 5).map((topic: string) => (
-                <span
-                  key={topic}
-                  className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 break-all"
-                >
-                  #{topic}
-                </span>
-              ))}
+          {documents.length > 1 ? (
+            <div className="relative min-w-0">
+              <select
+                value={selectedDocId || ''}
+                onChange={(e) => {
+                  setSelectedDocId(e.target.value);
+                  router.push(`/flashcards?docId=${e.target.value}`);
+                }}
+                className="appearance-none bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-xl pl-3 pr-8 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer max-w-[200px] sm:max-w-[280px] truncate transition-colors"
+              >
+                {documents.map((d) => (
+                  <option key={d.id} value={d.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                    {d.filename}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
+          ) : (
+            <h1 className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[240px] sm:max-w-[320px]">
+              {currentDoc?.filename || 'Flashcards'}
+            </h1>
           )}
         </div>
 
-        <div className="flex flex-col sm:items-end gap-2 w-full md:w-auto shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2 text-xs font-mono font-bold text-brand-700 dark:text-brand-300">
-            <span>Mastery: {knownCount} / {flashcards.length} Known</span>
-            <span className="text-slate-400">({progressPercent}%)</span>
-          </div>
-          <div className="w-full sm:w-36 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-emerald-600 transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
+        {/* Actions & Card Count */}
+        <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+          {flashcards.length > 0 && (
+            <span className="text-xs font-mono font-medium text-slate-500 dark:text-slate-400">
+              {currentIndex + 1} / {flashcards.length}
+            </span>
+          )}
 
-          <div className="flex flex-wrap items-center gap-2 pt-1 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => loadFlashcards(selectedDocId || undefined, true)}
               disabled={regenerating || loading}
-              className="flex-1 sm:flex-initial px-2.5 py-1.5 sm:py-1 text-[11px] font-mono border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-              title="Regenerate questions using LLM"
+              className="px-2.5 py-1.5 text-xs font-medium border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              title="Regenerate flashcards"
             >
-              <RefreshCw className={`w-3 h-3 ${regenerating ? 'animate-spin' : ''}`} />
-              <span>Regenerate with AI</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${regenerating ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{regenerating ? 'Generating...' : 'Regenerate'}</span>
             </button>
 
             {flashcards.length > 0 && (
               <button
                 onClick={downloadStudySheet}
-                className="flex-1 sm:flex-initial px-2.5 py-1.5 sm:py-1 text-[11px] font-mono border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1.5 transition-colors"
-                title="Download study sheet PDF"
+                className="px-2.5 py-1.5 text-xs font-medium border border-slate-200 dark:border-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center gap-1.5 transition-colors"
+                title="Export as PDF"
               >
-                <Download className="w-3 h-3" />
-                <span>Export PDF</span>
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Export PDF</span>
               </button>
             )}
           </div>
         </div>
       </div>
 
+      {/* Progress Bar */}
+      {flashcards.length > 0 && !loading && (
+        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-brand-600 transition-all duration-300 ease-out"
+            style={{ width: `${((currentIndex + 1) / flashcards.length) * 100}%` }}
+          />
+        </div>
+      )}
+
       {/* Main Flashcard Stage */}
       {loading ? (
-        <div className="py-20 text-center space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin text-brand-700 dark:text-brand-400 mx-auto" />
-          <span className="text-xs font-semibold text-slate-500">
-            {regenerating ? 'Regenerating Core Topic Flashcards with LLM...' : 'Extracting Core Topic Flashcards...'}
-          </span>
+        <div className="py-24 text-center space-y-3">
+          <Loader2 className="w-8 h-8 animate-spin text-brand-600 mx-auto" />
+          <p className="text-xs font-medium text-slate-500">
+            {regenerating ? 'Generating flashcards with AI...' : 'Loading flashcards...'}
+          </p>
         </div>
       ) : flashcards.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 sm:p-12 text-center text-slate-400 space-y-4">
-          <BookOpen className="w-12 h-12 mx-auto opacity-50" />
-          <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">No Flashcards Generated Yet</h3>
+          <BookOpen className="w-12 h-12 mx-auto opacity-40 text-slate-400" />
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No Flashcards Available</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Upload a syllabus PDF from your dashboard to create active-recall revision flashcards.
+            Upload a PDF document from your dashboard to automatically create revision flashcards.
           </p>
           <Link
             href="/upload"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-700 text-white rounded-xl text-xs font-semibold shadow-xs hover:bg-brand-800"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-600 text-white rounded-xl text-xs font-semibold shadow-xs hover:bg-brand-700 transition-colors"
           >
             Upload PDF Now
           </Link>
         </div>
       ) : (
-        <div className="space-y-6 w-full min-w-0">
+        <div className="space-y-5 w-full min-w-0">
           {/* Flashcard Box */}
           <div
             onClick={() => setIsFlipped(!isFlipped)}
-            className="w-full min-h-[260px] sm:min-h-[340px] rounded-3xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 p-4 sm:p-8 shadow-sm cursor-pointer flex flex-col justify-between hover:border-brand-500 transition-all text-center relative overflow-hidden select-none min-w-0"
+            className="w-full min-h-[300px] sm:min-h-[360px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-10 shadow-sm hover:shadow-md cursor-pointer flex flex-col justify-between hover:border-brand-400 dark:hover:border-brand-500 transition-all text-center select-none"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-500">
-              <span>Card {currentIndex + 1} of {flashcards.length}</span>
-              <span className="font-bold text-brand-700 dark:text-brand-400 uppercase tracking-wider truncate max-w-[150px] sm:max-w-none">
+            {/* Card Header: Topic & Mastered Badge */}
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px] truncate max-w-[200px]">
                 {currentCard?.topic}
               </span>
-              <span className="text-slate-400 flex items-center gap-1">
-                <RotateCw className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Click or Space to </span>Flip
-              </span>
+
+              {currentCard?.known && (
+                <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Mastered
+                </span>
+              )}
             </div>
 
-            <div className="py-6 sm:py-10 my-auto">
-              <span className="text-[11px] font-mono uppercase font-bold text-slate-400 tracking-wider block mb-3">
-                {isFlipped ? 'Grounded Answer & Definition' : 'Core Topic Question / Prompt'}
+            {/* Card Body: Question or Answer */}
+            <div className="py-8 my-auto">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-3">
+                {isFlipped ? 'Answer' : 'Question'}
               </span>
-              <p className="text-base sm:text-xl lg:text-2xl font-extrabold leading-relaxed text-slate-900 dark:text-white max-w-2xl mx-auto break-words">
+              <p className="text-lg sm:text-2xl font-bold leading-relaxed text-slate-900 dark:text-white max-w-2xl mx-auto break-words">
                 {isFlipped ? currentCard?.back : currentCard?.front}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400 pt-4 border-t border-slate-100 dark:border-slate-800/80">
-              <span className="hidden sm:inline">Tip: Use Left/Right arrows to flip between cards</span>
-              <span className="sm:hidden">Tap card to flip answer</span>
-              {currentCard?.known ? (
-                <span className="text-emerald-600 font-bold flex items-center gap-1">
-                  ✓ Marked as Known
-                </span>
-              ) : (
-                <span className="text-slate-400">Needs practice</span>
-              )}
+            {/* Card Footer: Flip Hint */}
+            <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
+              <RotateCw className="w-3.5 h-3.5" />
+              <span>Click or Space to flip</span>
             </div>
-
-            {currentCard?.known && (
-              <div className="absolute top-3 right-3 sm:top-4 sm:right-4 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950 px-2 sm:px-2.5 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800">
-                ✓ Mastered
-              </div>
-            )}
           </div>
 
-          {/* Stepper Navigation & Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 w-full min-w-0">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                onClick={() => {
-                  if (currentIndex > 0) {
-                    setIsFlipped(false);
-                    setCurrentIndex((p) => p - 1);
-                  }
-                }}
-                disabled={currentIndex === 0}
-                className="flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
-              >
-                <ChevronLeft className="w-4 h-4" /> Previous
-              </button>
+          {/* Controls: Prev, Mastery grading, Next */}
+          <div className="flex items-center justify-between gap-2 sm:gap-4 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (currentIndex > 0) {
+                  setIsFlipped(false);
+                  setCurrentIndex((p) => p - 1);
+                }
+              }}
+              disabled={currentIndex === 0}
+              className="px-3 sm:px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1.5"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Prev</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (currentIndex < flashcards.length - 1) {
-                    setIsFlipped(false);
-                    setCurrentIndex((p) => p + 1);
-                  }
-                }}
-                disabled={currentIndex === flashcards.length - 1}
-                className="flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
-              >
-                Next <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => handleToggleKnown(false)}
-                className="flex-1 sm:flex-initial px-3 sm:px-5 py-2.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold text-xs rounded-xl border border-rose-200 dark:border-rose-900 transition-all flex items-center justify-center gap-1.5 sm:gap-2"
+                className="px-3.5 sm:px-5 py-2.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 dark:bg-slate-800 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 text-slate-700 dark:text-slate-300 font-semibold text-xs rounded-xl border border-slate-200 dark:border-slate-700 hover:border-rose-200 dark:hover:border-rose-900 transition-all flex items-center gap-1.5"
               >
-                <X className="w-4 h-4 shrink-0" /> <span>Needs Practice</span>
+                <X className="w-4 h-4 text-rose-500" />
+                <span>Still Learning</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleToggleKnown(true)}
-                className="flex-1 sm:flex-initial px-3 sm:px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 sm:gap-2"
+                className={`px-3.5 sm:px-5 py-2.5 font-semibold text-xs rounded-xl transition-all flex items-center gap-1.5 ${
+                  currentCard?.known
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-600 hover:text-white'
+                }`}
               >
-                <Check className="w-4 h-4 shrink-0" /> <span>I Know This</span>
+                <Check className="w-4 h-4" />
+                <span>{currentCard?.known ? 'Mastered' : 'Know This'}</span>
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (currentIndex < flashcards.length - 1) {
+                  setIsFlipped(false);
+                  setCurrentIndex((p) => p + 1);
+                }
+              }}
+              disabled={currentIndex === flashcards.length - 1}
+              className="px-3 sm:px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-30 disabled:pointer-events-none flex items-center gap-1.5"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
